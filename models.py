@@ -107,3 +107,8 @@ class NWCRegistrationRequest(BaseModel):
 class NWCGetResponse(BaseModel):
     data: NWCKey
     budgets: list[NWCBudget]
+
+
+class NWCConfig(BaseModel):
+    key: str
+    value: str

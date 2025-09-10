@@ -10,6 +10,7 @@ from .models import (
     GetNWC,
     GetWalletNWC,
     NWCBudget,
+    NWCConfig,
     NWCKey,
     NWCNewBudget,
     TrackedSpendNWC,
@@ -159,11 +160,11 @@ async def get_budgets_nwc(data: GetBudgetsNWC) -> list[NWCBudget]:
     assert_valid_pubkey(data.pubkey)
     # ## #
 
-    rows = await db.fetchall(
+    budgets = await db.fetchall(
         "SELECT * FROM nwcprovider.budgets WHERE pubkey = :pubkey",
         {"pubkey": data.pubkey},
+        model=NWCBudget,
     )
-    budgets = [NWCBudget(**row) for row in rows]
     if data.calculate_spent:
         for budget in budgets:
             last_cycle, next_cycle = budget.get_timestamp_range()
@@ -173,7 +174,7 @@ async def get_budgets_nwc(data: GetBudgetsNWC) -> list[NWCBudget]:
             assert_valid_timestamp_seconds(next_cycle)
             # ## #
 
-            tot_spent_in_range_msats = await db.fetchone(
+            result: dict = await db.fetchone(
                 """
                 SELECT SUM(amount_msats) FROM nwcprovider.spent
                 WHERE pubkey = :pubkey AND created_at >=
@@ -185,9 +186,7 @@ async def get_budgets_nwc(data: GetBudgetsNWC) -> list[NWCBudget]:
                     "next_cycle": next_cycle,
                 },
             )
-            tot_spent_in_range_msats = (
-                next(iter(tot_spent_in_range_msats.values())) or 0
-            )
+            tot_spent_in_range_msats = next(iter(result.values())) or 0
 
             # hardening #
             assert_valid_msats(tot_spent_in_range_msats)
@@ -266,12 +265,14 @@ async def tracked_spend_nwc(data: TrackedSpendNWC, action):
 
 
 async def get_config_nwc(key: str):
-    row = await db.fetchone(
-        "SELECT * FROM nwcprovider.config WHERE key = :key", {"key": key}
+    config = await db.fetchone(
+        "SELECT * FROM nwcprovider.config WHERE key = :key",
+        {"key": key},
+        model=NWCConfig,
     )
-    if not row:
+    if not config:
         return None
-    return row["value"]
+    return config.value
 
 
 async def set_config_nwc(key: str, value: str):
@@ -292,5 +293,5 @@ async def set_config_nwc(key: str, value: str):
 
 
 async def get_all_config_nwc():
-    rows = await db.fetchall("SELECT * FROM nwcprovider.config")
-    return {row["key"]: row["value"] for row in rows}
+    rows = await db.fetchall("SELECT * FROM nwcprovider.config", model=NWCConfig)
+    return {row.key: row.value for row in rows}
