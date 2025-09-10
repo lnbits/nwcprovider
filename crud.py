@@ -70,7 +70,8 @@ async def delete_nwc(data: DeleteNWC) -> None:
 
     # hardening #
     assert_valid_pubkey(data.pubkey)
-    assert_valid_wallet_id(data.wallet)
+    if data.wallet:
+        assert_valid_wallet_id(data.wallet)
     # ## #
 
     await db.execute(
@@ -81,6 +82,9 @@ async def delete_nwc(data: DeleteNWC) -> None:
 
 async def get_wallet_nwcs(data: GetWalletNWC) -> list[NWCKey]:
     expires = int(time.time()) if not data.include_expired else -1
+
+    if not data.wallet:
+        return []
 
     # hardening #
     assert_valid_wallet_id(data.wallet)
@@ -149,7 +153,7 @@ async def get_nwc(data: GetNWC) -> NWCKey | None:
     return row
 
 
-async def get_budgets_nwc(data: GetBudgetsNWC) -> NWCBudget | None:
+async def get_budgets_nwc(data: GetBudgetsNWC) -> list[NWCBudget]:
 
     # hardening #
     assert_valid_pubkey(data.pubkey)

@@ -336,7 +336,7 @@ async def _on_lookup_invoice(
     invoice_data = bolt11_decode(payment.bolt11)
     is_settled = not payment.pending
     timestamp = int(payment.time.timestamp()) or int(invoice_data.date)
-    expiry = int(payment.expiry.timestamp()) or timestamp + 3600
+    expiry = int(payment.expiry.timestamp()) if payment.expiry else timestamp + 3600
     preimage = (
         payment.preimage
         or "0000000000000000000000000000000000000000000000000000000000000000"
@@ -392,11 +392,9 @@ async def _on_list_transactions(
     assert_sane_string(tx_type)
     # ## #
 
-    values = []
     filters: Filters = Filters()
-    filters.where(["time <= ?"])
-    values.append(tuntil)
-    filters.values(values)
+    filters.where(["time <= :tuntil"])
+    filters.values({"tuntil": tuntil})
     history = await get_payments(
         wallet_id=nwc.wallet,
         complete=True,

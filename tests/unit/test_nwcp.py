@@ -12,7 +12,7 @@ import string
 
 import pytest
 
-from nwcp import NWCServiceProvider
+from ...nwcp import NWCServiceProvider
 
 
 @pytest.fixture
