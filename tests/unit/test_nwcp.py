@@ -1,11 +1,9 @@
 import json
-
-from loguru import logger
-
 import random
 import string
 
 import pytest
+from loguru import logger
 
 from ...nwcp import NWCServiceProvider
 
