@@ -6,9 +6,51 @@ Easily connect your LNbits wallets via [NWC](https://nwc.dev/).
 
 Install the extension via the .env file or through the admin UI on your LNbits server. More details can be found [here](https://github.com/lnbits/lnbits/wiki/LNbits-Extensions).
 
-## Configuration
+# Configuration
 
-Configure the extension from the "Settings" page in the top right menu when logged in as admin inside the extension page.
+The **LNbits NWC Service Provider** requires a one-time setup before it can be used.  
+It relies on a Nostr relay, which can be either:
+
+- The **LNbits Nostrclient** browser extension
+- A **third-party Nostr relay** of your choice
+
+## Relay Configuration
+
+Before you can start using the extension, you need to configure a Nostr relay.
+
+### Option 1: Use a third-party Nostr relay (recommended)
+
+This is the easiest option for most users. It allows you to run LNbits on a private network while connecting to NWC apps through a public Nostr relay.
+
+1. Choose a Nostr relay that supports NWC connections.
+2. Open the **NWC Service Provider settings** (gear icon in the top-right corner).
+   1. Enter your chosen relay URL in the **Nostr Relay URL** field (e.g. `wss://relay.nostrconnect.com`).
+   2. Click **Save**.
+
+### Option 2: Use the LNbits Nostrclient extension
+
+> **Note:** This option only works if your LNbits instance is publicly accessible on the internet. Refer to the [nostrclient documentation](https://github.com/lnbits/nostrclient) for more information.
+
+1. Install the **Nostrclient** extension in your browser.
+2. Open the extension.
+   1. Add at least one relay (e.g. `wss://relay.nostrconnect.com` is a good choice for NWC connections).
+   2. Open **Settings** and enable **Expose Public WebSocket**.
+
+---
+
+## Connecting a NWC App
+
+1. In the **NWC Service Provider** extension, select the wallet you want to connect.
+2. Click the **+** button to add a new connection.
+3. Enter a description, expiry date (optional), permissions, and limits.
+4. Click **Connect** to create the connection.
+5. Use the generated **pairing URL** or **QR code** to connect your chosen app.
+
+---
+
+# Extension Configuration
+
+The "Configuration" page of the NWC Service Provider extension can be accessed by clicking the gear icon in the top-right corner of the extension page.
 
 ### Configuration Options:
 
@@ -26,18 +68,3 @@ Configure the extension from the "Settings" page in the top right menu when logg
 > For example, in shared or community lnbits instances, where users are unaware of this functionality, they might assume a payment has failed and attempt to pay a new invoice with a different wallet, only for the instance to come back online and process the original payment request, potentially leading to duplicate payments.
 >
 > For this reason, unless you are trying to tackle this specific issue, it is recommended to leave this setting at `0`.
-
-### Using Nostrclient
-
-The extension is preconfigured to connect to the nostrclient extension. Install it on the same LNbits instance and configure it to expose public websocket endpoints. Refer to the [nostrclient documentation](https://github.com/lnbits/nostrclient) for more information.
-
-### Using a Custom Relay
-
-To use a custom relay, set the `relay` key to the relay URL (e.g., `wss://nostr.wine`) in the extension's Settings page.
-
-## Usage
-
-1. Go to the extension page.
-2. Select a wallet and click the plus button to create a new NWC connection.
-3. Configure expiration, limits, and permissions.
-4. A pairing URL will be generated for you to open, copy, or scan with the NWC app. Note that the pairing URL is shown only once, but you can delete and recreate the connection to get a new one.
