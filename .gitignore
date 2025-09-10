@@ -11,3 +11,4 @@ data
 package.json
 package-lock.json
 dump
+.venv

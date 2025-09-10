@@ -4,16 +4,17 @@ import hashlib
 import json
 import random
 import time
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
+from collections.abc import Awaitable, Callable
+from typing import Any, Union
 
 import secp256k1
-import websockets.client as websockets
 from Cryptodome import Random
 from Cryptodome.Cipher import AES
 from Cryptodome.Util.Padding import pad, unpad
 from lnbits.helpers import encrypt_internal_message
 from lnbits.settings import settings
 from loguru import logger
+from websockets.legacy.client import connect
 
 
 class RateLimit:
@@ -23,14 +24,14 @@ class RateLimit:
 
 class MainSubscription:
     def __init__(self):
-        self.requests_sub_id: Optional[str] = None
-        self.responses_sub_id: Optional[str] = None
+        self.requests_sub_id: str | None = None
+        self.responses_sub_id: str | None = None
         self.requests_eose = False
         self.responses_eose = False
-        self.events: Dict[str, Dict] = {}
-        self.responses: List[str] = []
+        self.events: dict[str, dict] = {}
+        self.responses: list[str] = []
 
-    def get_stale(self) -> List[Dict]:
+    def get_stale(self) -> list[dict]:
         """
         Get all the pending events that do not have a response yet.
         """
@@ -47,7 +48,7 @@ class MainSubscription:
         if event_id not in self.responses:
             self.responses.append(event_id)
 
-    def gc(self, expire: Optional[int] = None):
+    def gc(self, expire: int | None = None):
         """
         Garbage collection, remove all the events that have a response older
         than expire seconds (defaults to 1 hour if 0 or None)
@@ -74,8 +75,8 @@ class MainSubscription:
 class NWCServiceProvider:
     def __init__(
         self,
-        private_key: Optional[str] = None,
-        relay: Optional[str] = None,
+        private_key: str | None = None,
+        relay: str | None = None,
         handle_missed_events: int = 0,
     ):
         if not relay:  # Connect to nostrclient
@@ -100,17 +101,17 @@ class NWCServiceProvider:
         self.public_key_hex = self.public_key.serialize().hex()[2:]
 
         # List of supported methods
-        self.supported_methods: List[str] = []
+        self.supported_methods: list[str] = []
 
         # Keep track of the number of subscriptions (used for unique subid)
         self.subscriptions_count: int = 0
 
         # Request listeners, listen to specific methods
-        self.request_listeners: Dict[
+        self.request_listeners: dict[
             str,
             Callable[
-                [NWCServiceProvider, str, Dict],
-                Awaitable[List[Tuple[Optional[Dict], Optional[Dict], List]]],
+                [NWCServiceProvider, str, dict],
+                Awaitable[list[tuple[dict | None, dict | None, list]]],
             ],
         ] = {}
 
@@ -122,7 +123,7 @@ class NWCServiceProvider:
 
         # Subscription
         self.sub = None
-        self.rate_limit: Dict[str, RateLimit] = {}
+        self.rate_limit: dict[str, RateLimit] = {}
 
         # websocket connection
         self.ws = None
@@ -161,8 +162,8 @@ class NWCServiceProvider:
         self,
         method: str,
         listener: Callable[
-            ["NWCServiceProvider", str, Dict],
-            Awaitable[List[Tuple[Optional[Dict], Optional[Dict], List]]],
+            ["NWCServiceProvider", str, dict],
+            Awaitable[list[tuple[dict | None, dict | None, list]]],
         ],
     ):
         """
@@ -185,7 +186,7 @@ class NWCServiceProvider:
         self.reconnect_task = asyncio.create_task(self._connect_to_relay())
         self.gc_task = asyncio.create_task(self._gc_loop())
 
-    def _json_dumps(self, data: Union[Dict, list]) -> str:
+    def _json_dumps(self, data: Union[dict, list]) -> str:
         """
         Converts a Python dictionary to a JSON string with compact encoding.
 
@@ -195,7 +196,7 @@ class NWCServiceProvider:
         Returns:
             str: The compact JSON string.
         """
-        if isinstance(data, Dict):
+        if isinstance(data, dict):
             data = {k: v for k, v in data.items() if v is not None}
         return json.dumps(data, separators=(",", ":"), ensure_ascii=False)
 
@@ -205,7 +206,7 @@ class NWCServiceProvider:
         """
         return self.shutdown or not settings.lnbits_running
 
-    async def _send(self, data: List[Any]):
+    async def _send(self, data: list[Any]):
         """
         Sends data to the relay.
 
@@ -249,7 +250,7 @@ class NWCServiceProvider:
             await asyncio.sleep(1)
 
     async def _ratelimit(self, unit: str, max_sleep_time: int = 120) -> None:
-        limit: Optional[RateLimit] = self.rate_limit.get(unit)
+        limit: RateLimit | None = self.rate_limit.get(unit)
         if not limit:
             self.rate_limit[unit] = limit = RateLimit()
 
@@ -289,7 +290,7 @@ class NWCServiceProvider:
         await self._send(["REQ", self.sub.requests_sub_id, req_filter])
         await self._send(["REQ", self.sub.responses_sub_id, res_filter])
 
-    async def _on_connection(self, ws):
+    async def _on_connection(self, _):
         """
         On connection callback, announce the service provider
         methods and subscribe to nip67 events.
@@ -306,7 +307,7 @@ class NWCServiceProvider:
         # Resubscribe to nwc events
         await self._subscribe()
 
-    async def _handle_request(self, event: Dict) -> List[Dict]:
+    async def _handle_request(self, event: dict) -> list[dict]:
         """
         Handle a nwc request
         """
@@ -319,7 +320,7 @@ class NWCServiceProvider:
         # Handle request
         method = content["method"]
         listener = self.request_listeners.get(method, None)
-        outs: List[Dict[str, Any]] = []
+        outs: list[dict[str, Any]] = []
         if not listener:
             outs.append(
                 {
@@ -352,7 +353,7 @@ class NWCServiceProvider:
             if "error" in out:
                 content["error"] = out["error"]
             # Prepare response event
-            res: Dict = {
+            res: dict = {
                 "kind": 23195,
                 "created_at": int(time.time()),
                 "tags": out.get("tags", []),
@@ -451,7 +452,7 @@ class NWCServiceProvider:
             await self._ratelimit("subscribing")
             await self._subscribe()
 
-    async def _on_message(self, ws, message: str):
+    async def _on_message(self, _, message: str):
         """
         Handle incoming messages from the relay.
         """
@@ -484,7 +485,7 @@ class NWCServiceProvider:
         ):  # Reconnect until the instance is shutting down
             logger.debug("Creating new connection...")
             try:
-                async with websockets.connect(self.relay) as ws:
+                async with connect(self.relay) as ws:
                     self.ws = ws
                     self.connected = True
                     await self._on_connection(ws)
@@ -513,7 +514,7 @@ class NWCServiceProvider:
                 await self._ratelimit("connecting")
 
     def _encrypt_content(
-        self, content: str, pubkey_hex: str, iv_seed: Optional[int] = None
+        self, content: str, pubkey_hex: str, iv_seed: int | None = None
     ) -> str:
         """
         Encrypts the content for the given public key
@@ -571,7 +572,7 @@ class NWCServiceProvider:
         decrypted = decrypted_bytes.decode("utf-8")
         return decrypted
 
-    def _verify_event(self, event: Dict) -> bool:
+    def _verify_event(self, event: dict) -> bool:
         """
         Verify the event signature
 
@@ -602,7 +603,7 @@ class NWCServiceProvider:
             return False
         return True
 
-    def _sign_event(self, event: Dict) -> Dict:
+    def _sign_event(self, event: dict) -> dict:
         """
         Signs the event (in place)
 

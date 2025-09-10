@@ -1,5 +1,4 @@
 import time
-from typing import List, Optional
 
 from lnbits.db import Database
 
@@ -80,7 +79,7 @@ async def delete_nwc(data: DeleteNWC) -> None:
     )
 
 
-async def get_wallet_nwcs(data: GetWalletNWC) -> List[NWCKey]:
+async def get_wallet_nwcs(data: GetWalletNWC) -> list[NWCKey]:
     expires = int(time.time()) if not data.include_expired else -1
 
     # hardening #
@@ -101,7 +100,7 @@ async def get_wallet_nwcs(data: GetWalletNWC) -> List[NWCKey]:
     )
 
 
-async def get_nwc(data: GetNWC) -> Optional[NWCKey]:
+async def get_nwc(data: GetNWC) -> NWCKey | None:
     expires = int(time.time()) if not data.include_expired else -1
 
     # hardening #
@@ -150,7 +149,7 @@ async def get_nwc(data: GetNWC) -> Optional[NWCKey]:
     return row
 
 
-async def get_budgets_nwc(data: GetBudgetsNWC) -> Optional[NWCBudget]:
+async def get_budgets_nwc(data: GetBudgetsNWC) -> NWCBudget | None:
 
     # hardening #
     assert_valid_pubkey(data.pubkey)

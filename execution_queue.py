@@ -1,7 +1,7 @@
 import asyncio
-from typing import Any, Dict
+from typing import Any
 
-execution_queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
+execution_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
 
 
 async def enqueue(action):

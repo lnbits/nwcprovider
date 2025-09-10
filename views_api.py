@@ -1,5 +1,4 @@
 from http import HTTPStatus
-from typing import Dict, List, Optional
 
 import secp256k1
 from fastapi import APIRouter, Depends, Request
@@ -39,13 +38,13 @@ nwcprovider_api_router = APIRouter()
 
 # Get supported permissions
 @nwcprovider_api_router.get("/api/v1/permissions", status_code=HTTPStatus.OK)
-async def api_get_permissions() -> Dict:
+async def api_get_permissions() -> dict:
     return nwc_permissions
 
 
 ## Get nwc keys associated with the wallet
 @nwcprovider_api_router.get(
-    "/api/v1/nwc", status_code=HTTPStatus.OK, response_model=List[NWCGetResponse]
+    "/api/v1/nwc", status_code=HTTPStatus.OK, response_model=list[NWCGetResponse]
 )
 async def api_get_nwcs(
     include_expired: bool = False,
@@ -111,13 +110,13 @@ async def api_get_pairing_url(req: Request, secret: str) -> str:
     assert_sane_string(secret)
     # ## #
 
-    pprivkey: Optional[str] = await get_config_nwc("provider_key")
+    pprivkey: str | None = await get_config_nwc("provider_key")
     if not pprivkey:
         raise Exception("Extension is not configured")
     relay = await get_config_nwc("relay")
     if not relay:
         raise Exception("Extension is not configured")
-    relay_alias: Optional[str] = await get_config_nwc("relay_alias")
+    relay_alias: str | None = await get_config_nwc("relay_alias")
     if relay_alias:
         relay = relay_alias
     else:
