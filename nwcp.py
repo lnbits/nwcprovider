@@ -4,7 +4,8 @@ import hashlib
 import json
 import random
 import time
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
+from collections.abc import Awaitable
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import secp256k1
 import websockets.client as websockets

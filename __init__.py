@@ -45,7 +45,7 @@ def nwcprovider_start():
 __all__ = [
     "db",
     "nwcprovider_ext",
-    "nwcprovider_static_files",
     "nwcprovider_start",
+    "nwcprovider_static_files",
     "nwcprovider_stop",
 ]
