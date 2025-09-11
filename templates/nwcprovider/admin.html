@@ -6,21 +6,56 @@
   <div class="col-12 q-gutter-y-md">
     <q-card>
       <q-card-section>
-        <div class="row items-center no-wrap q-mb-md">
+        <div class="row items-center wrap q-mb-md">
           <div class="col">
             <h5 class="text-subtitle1 q-my-none">
-              NWC Service Provider - Config
+              NWC Service Provider Configuration
             </h5>
           </div>
         </div>
-        <q-markup-table flat>
+        <q-markup-table flat wrap-cells="true">
           <tbody>
-            <q-tr v-for="entry in entries" :key="entry.key">
+            <q-tr>
               <q-td>
-                <span> ${entry.key} </span>
+                <q-input
+                  v-model="config.relay"
+                  label="Nostr Relay URL"
+                  filled
+                  wrap
+                  :hint="'URL of the Nostr relay for dispatching and receiving NWC events. Use public relays or a custom one. Specify `nostrclient` to use the Nostr Client extension'"
+                >
+                </q-input>
               </q-td>
+            </q-tr>
+            <q-tr>
               <q-td>
-                <q-input v-model="entry.value" />
+                <q-input
+                  filled
+                  label="Relay Alias"
+                  v-model="config.relay_alias"
+                  :hint="'Relay URL to display in pairing URLs. If your relay has a different public URL than the one set in \'Nostr Relay URL\' set it here.'"
+                />
+              </q-td>
+            </q-tr>
+            <q-tr>
+              <q-td>
+                <q-input
+                  filled
+                  label="NWC Provider Secret Key "
+                  v-model="config.provider_key"
+                  :hint="'The secret key for the NWC Service Provider. You don\'t need to change this unless your key has been compromised.'"
+                />
+              </q-td>
+            </q-tr>
+            <q-tr>
+              <q-td>
+                <q-input
+                  filled
+                  label="Time Period To Handle Missed Events"
+                  v-model="config.handle_missed_events"
+                  type="number"
+                  :hint="'Number of seconds to look back for processing events missed while offline. Setting it to 0 disables this functionality.'"
+                />
               </q-td>
             </q-tr>
           </tbody>

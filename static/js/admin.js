@@ -1,87 +1,81 @@
 window.app = Vue.createApp({
-  el: "#vue",
+  el: '#vue',
   mixins: [windowMixin],
-  delimiters: ["${", "}"],
+  delimiters: ['${', '}'],
   data: function () {
     return {
-      entries: [],
+      config: {},
       columns: [
         {
-          name: "key",
+          name: 'key',
           required: true,
-          label: "Key",
-          align: "left",
-          field: (row) => row.key,
-          sortable: true,
+          label: 'Key',
+          align: 'left',
+          field: row => row.key,
+          sortable: true
         },
         {
-          name: "value",
+          name: 'value',
           required: true,
-          label: "Value",
-          align: "left",
-          field: (row) => row.value,
-          sortable: true,
-        },
-      ],
-    };
+          label: 'Value',
+          align: 'left',
+          field: row => row.value,
+          sortable: true
+        }
+      ]
+    }
   },
 
   methods: {
     fetchConfig() {
-      this.entries = [];
+      this.config = {}
       LNbits.api
         .request(
-          "GET",
-          "/nwcprovider/api/v1/config",
-          this.g.user.wallets[0].adminkey,
+          'GET',
+          '/nwcprovider/api/v1/config',
+          this.g.user.wallets[0].adminkey
         )
-        .then((response) => {
-          const newEntries = [];
-          for (const [key, value] of Object.entries(response.data)) {
-            newEntries.push({
-              key: key,
-              value: value,
-            });
-          }
-          this.entries.length = 0;
-          this.entries.push(...newEntries);
+        .then(response => {
+          this.config = response.data
+          console.log('Config fetched:', this.config)
         })
         .catch(function (error) {
-          console.error("Error fetching config:", error);
-        });
+          console.error('Error fetching config:', error)
+        })
     },
     async saveConfig() {
-      const data = {};
-      for (const entry of this.entries) {
-        data[entry.key] = entry.value;
+      const data = {}
+      for (const [key, value] of Object.entries(this.config)) {
+        data[key] = value
       }
+      console.log('Saving config:', data)
       try {
         const response = await LNbits.api.request(
-          "POST",
-          "/nwcprovider/api/v1/config",
+          'POST',
+          '/nwcprovider/api/v1/config',
           this.g.user.wallets[0].adminkey,
-          data,
-        );
+          data
+        )
         Quasar.Notify.create({
-          type: "positive",
-          message: "Config saved!",
-        });
+          type: 'positive',
+          message: 'Config saved!'
+        })
         Quasar.Notify.create({
-          type: "warning",
+          type: 'warning',
           message:
-            "You need to restart the server for the changes to take effect!",
-        });
+            'You need to restart the server for the changes to take effect!'
+        })
       } catch (error) {
         Quasar.Notify.create({
-          type: "negative",
-          message: "Error saving config: " + String(error),
-        });
-        console.error("Error saving config:", error);
+          type: 'negative',
+          message: 'Error saving config: ' + String(error)
+        })
+        console.error('Error saving config:', error)
       }
-    },
+    }
   },
 
   created: function () {
-    this.fetchConfig();
-  },
-});
+    this.fetchConfig()
+  }
+})

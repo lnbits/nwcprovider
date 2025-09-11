@@ -1,8 +1,8 @@
 {% extends "base.html" %} {% from "macros.jinja" import window_vars with context
 %} {% block scripts %} {{ window_vars(user) }}
 <script type="module">
-  import * as NobleSecp256k1 from "/nwcprovider/static/js/noble-secp256k1.min.js";
-  window.NobleSecp256k1 = NobleSecp256k1;
+  import * as NobleSecp256k1 from '/nwcprovider/static/js/noble-secp256k1.min.js'
+  window.NobleSecp256k1 = NobleSecp256k1
 </script>
 <script src="{{ static_url_for('nwcprovider/static', path='js/index.js') }}"></script>
 {% endblock %} {% block page %}

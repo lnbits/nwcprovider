@@ -1,7 +1,7 @@
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   release:
@@ -22,7 +22,7 @@ jobs:
         with:
           token: ${{ secrets.EXT_GITHUB }}
           repository: lnbits/lnbits-extensions
-          path: "./lnbits-extensions"
+          path: './lnbits-extensions'
 
       - name: setup git user
         run: |
@@ -31,12 +31,12 @@ jobs:
       - name: Create pull request in extensions repo
         env:
           GH_TOKEN: ${{ secrets.EXT_GITHUB }}
-          repo_name: "${{ github.event.repository.name }}"
-          tag: "${{ github.ref_name }}"
-          branch: "update-${{ github.event.repository.name }}-${{ github.ref_name }}"
-          title: "[UPDATE] ${{ github.event.repository.name }} to ${{ github.ref_name }}"
-          body: "https://github.com/lnbits/${{ github.event.repository.name }}/releases/${{ github.ref_name }}"
-          archive: "https://github.com/lnbits/${{ github.event.repository.name }}/archive/refs/tags/${{ github.ref_name }}.zip"
+          repo_name: '${{ github.event.repository.name }}'
+          tag: '${{ github.ref_name }}'
+          branch: 'update-${{ github.event.repository.name }}-${{ github.ref_name }}'
+          title: '[UPDATE] ${{ github.event.repository.name }} to ${{ github.ref_name }}'
+          body: 'https://github.com/lnbits/${{ github.event.repository.name }}/releases/${{ github.ref_name }}'
+          archive: 'https://github.com/lnbits/${{ github.event.repository.name }}/archive/refs/tags/${{ github.ref_name }}.zip'
         run: |
           cd lnbits-extensions
           git checkout -b $branch
