@@ -1,7 +1,7 @@
 import asyncio
 import time
 from math import ceil
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from bolt11 import decode as bolt11_decode
 from lnbits.core.crud import get_payments, get_wallet, get_wallet_payment
@@ -35,7 +35,7 @@ from .paranoia import (
 from .permission import nwc_permissions
 
 
-async def _check(nwc: Optional[NWCKey], method: str) -> Optional[Dict]:
+async def _check(nwc: NWCKey | None, method: str) -> dict | None:
     # check
     if not nwc:
         return {
@@ -46,8 +46,8 @@ async def _check(nwc: Optional[NWCKey], method: str) -> Optional[Dict]:
     allowed = False
     permissions = nwc.get_permissions()
     for p in permissions:
-        permissions_data: Dict[str, Any] = nwc_permissions.get(p, {})
-        allowed_methods: List[str] = permissions_data.get("methods", [])
+        permissions_data: dict[str, Any] = nwc_permissions.get(p, {})
+        allowed_methods: list[str] = permissions_data.get("methods", [])
         if method in allowed_methods:
             allowed = True
             break
@@ -64,7 +64,7 @@ async def _process_invoice(
     pubkey: str,
     invoice: str,
     amount_msats: int,
-    description: Optional[str] = None,
+    description: str | None = None,
 ):
 
     # hardening #
@@ -80,7 +80,7 @@ async def _process_invoice(
         payment = await pay_invoice(
             wallet_id=wallet_id,
             payment_request=invoice,
-            max_sat=int(ceil(amount_msats / 1000)),
+            max_sat=ceil(amount_msats / 1000),
             description=description or "",
         )
         return payment.payment_hash
@@ -109,7 +109,7 @@ async def _process_invoice(
     wait_for_preimage = (
         True  # currently required by nip 47 specs, might change in future
     )
-    payment_status: Optional[PaymentStatus] = None
+    payment_status: PaymentStatus | None = None
     while wait_for_preimage:
         payment_status = await check_transaction_status(wallet_id, payment_hash)
         if payment_status.success:
@@ -128,8 +128,8 @@ async def _process_invoice(
 
 
 async def _on_pay_invoice(
-    sp: NWCServiceProvider, pubkey: str, payload: Dict
-) -> List[Tuple[Optional[Dict], Optional[Dict], List]]:
+    sp: NWCServiceProvider, pubkey: str, payload: dict
+) -> list[tuple[dict | None, dict | None, list]]:
 
     # hardening #
     assert_valid_pubkey(pubkey)
@@ -169,8 +169,8 @@ async def _on_pay_invoice(
 
 
 async def _on_multi_pay_invoice(
-    sp: NWCServiceProvider, pubkey: str, payload: Dict
-) -> List[Tuple[Optional[Dict], Optional[Dict], List]]:
+    sp: NWCServiceProvider, pubkey: str, payload: dict
+) -> list[tuple[dict | None, dict | None, list]]:
 
     # hardening #
     assert_valid_pubkey(pubkey)
@@ -184,7 +184,7 @@ async def _on_multi_pay_invoice(
         raise Exception("Pubkey has no associated wallet")
     params = payload.get("params", {})
     invoices = params.get("invoices", [])
-    results: List[Tuple[Optional[Dict], Optional[Dict], List]] = []
+    results: list[tuple[dict | None, dict | None, list]] = []
 
     # Ensures all invoices are provided
     for i in invoices:
@@ -228,8 +228,8 @@ async def _on_multi_pay_invoice(
 
 
 async def _on_make_invoice(
-    sp: NWCServiceProvider, pubkey: str, payload: Dict
-) -> List[Tuple[Optional[Dict], Optional[Dict], List]]:
+    sp: NWCServiceProvider, pubkey: str, payload: dict
+) -> list[tuple[dict | None, dict | None, list]]:
 
     # hardening #
     assert_valid_pubkey(pubkey)
@@ -298,8 +298,8 @@ async def _on_make_invoice(
 
 
 async def _on_lookup_invoice(
-    sp: NWCServiceProvider, pubkey: str, payload: Dict
-) -> List[Tuple[Optional[Dict], Optional[Dict], List]]:
+    sp: NWCServiceProvider, pubkey: str, payload: dict
+) -> list[tuple[dict | None, dict | None, list]]:
 
     # hardening #
     assert_valid_pubkey(pubkey)
@@ -336,12 +336,12 @@ async def _on_lookup_invoice(
     invoice_data = bolt11_decode(payment.bolt11)
     is_settled = not payment.pending
     timestamp = int(payment.time.timestamp()) or int(invoice_data.date)
-    expiry = int(payment.expiry.timestamp()) or timestamp + 3600
+    expiry = int(payment.expiry.timestamp()) if payment.expiry else timestamp + 3600
     preimage = (
         payment.preimage
         or "0000000000000000000000000000000000000000000000000000000000000000"
     )
-    res: Dict = {
+    res: dict = {
         "type": "outgoing" if payment.is_out else "incoming",
         "invoice": payment.bolt11,
         "description": (
@@ -363,8 +363,8 @@ async def _on_lookup_invoice(
 
 
 async def _on_list_transactions(
-    sp: NWCServiceProvider, pubkey: str, payload: Dict
-) -> List[Tuple[Optional[Dict], Optional[Dict], List]]:
+    sp: NWCServiceProvider, pubkey: str, payload: dict
+) -> list[tuple[dict | None, dict | None, list]]:
     # hardening #
     assert_valid_pubkey(pubkey)
     # ## #
@@ -392,11 +392,9 @@ async def _on_list_transactions(
     assert_sane_string(tx_type)
     # ## #
 
-    values = []
     filters: Filters = Filters()
-    filters.where(["time <= ?"])
-    values.append(tuntil)
-    filters.values(values)
+    filters.where(["time <= :tuntil"])
+    filters.values({"tuntil": tuntil})
     history = await get_payments(
         wallet_id=nwc.wallet,
         complete=True,
@@ -409,7 +407,7 @@ async def _on_list_transactions(
         limit=limit,
         offset=offset,
     )
-    transactions: List[Dict] = []
+    transactions: list[dict] = []
     p: Payment
     for p in history:
         invoice_data = bolt11_decode(p.bolt11)
@@ -435,8 +433,8 @@ async def _on_list_transactions(
 
 
 async def _on_get_balance(
-    sp: NWCServiceProvider, pubkey: str, payload: Dict
-) -> List[Tuple[Optional[Dict], Optional[Dict], List]]:
+    sp: NWCServiceProvider, pubkey: str, payload: dict
+) -> list[tuple[dict | None, dict | None, list]]:
 
     # hardening #
     assert_valid_pubkey(pubkey)
@@ -458,8 +456,8 @@ async def _on_get_balance(
 
 
 async def _on_get_info(
-    sp: NWCServiceProvider, pubkey: str, payload: Dict
-) -> List[Tuple[Optional[Dict], Optional[Dict], List]]:
+    sp: NWCServiceProvider, pubkey: str, payload: dict
+) -> list[tuple[dict | None, dict | None, list]]:
 
     # hardening #
     assert_valid_pubkey(pubkey)
@@ -477,8 +475,8 @@ async def _on_get_info(
     account_methods = []
     for spm in sp_methods:
         for p in permissions:
-            permissions_data: Dict[str, Any] = nwc_permissions.get(p, {})
-            allowed_methods: List[str] = permissions_data.get("methods", [])
+            permissions_data: dict[str, Any] = nwc_permissions.get(p, {})
+            allowed_methods: list[str] = permissions_data.get("methods", [])
             if spm in allowed_methods:
                 account_methods.append(spm)
                 break

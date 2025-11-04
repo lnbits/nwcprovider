@@ -4,17 +4,17 @@ import hashlib
 import json
 import random
 import time
-from typing import Dict, List, Optional, Union
+from typing import Union
 
 import bolt11
 import httpx
 import pytest
 import secp256k1
-import websockets.client as websockets
 from Cryptodome import Random
 from Cryptodome.Cipher import AES
 from Cryptodome.Util.Padding import pad, unpad
 from loguru import logger
+from websockets.legacy.client import connect
 
 wallets = {
     "wallet1": {
@@ -107,8 +107,8 @@ def gen_keypair():
 async def create_nwc(
     w: str,
     desc: str,
-    permissions: List[str],
-    budgets: List[Dict[str, int]],
+    permissions: list[str],
+    budgets: list[dict[str, int]],
     expiration: int = 0,
 ):
     keypair = gen_keypair()
@@ -210,7 +210,7 @@ class NWCWallet:
     async def _run(self):
         while True:
             try:
-                async with websockets.connect(self.relay) as ws:
+                async with connect(self.relay) as ws:
                     self.ws = ws
                     self.connected = True
                     self.sub_id = self._get_new_subid()
@@ -244,7 +244,7 @@ class NWCWallet:
                 break
 
     def _encrypt_content(
-        self, content: str, pubkey_hex: str, iv_seed: Optional[int] = None
+        self, content: str, pubkey_hex: str, iv_seed: int | None = None
     ) -> str:
         pubkey = secp256k1.PublicKey(bytes.fromhex("02" + pubkey_hex), True)
         shared = pubkey.tweak_mul(bytes.fromhex(self.private_key_hex)).serialize()[1:]
@@ -273,7 +273,7 @@ class NWCWallet:
         decrypted = decrypted_bytes.decode("utf-8")
         return decrypted
 
-    async def _on_message(self, ws, message: str):
+    async def _on_message(self, _, message: str):
         logger.debug("Received message: " + message)
         msg = json.loads(message)
         if msg[0] == "EVENT":  # Event message
@@ -292,12 +292,12 @@ class NWCWallet:
                 }
             )
 
-    def _json_dumps(self, data: Union[Dict, list]) -> str:
-        if isinstance(data, Dict):
+    def _json_dumps(self, data: Union[dict, list]) -> str:
+        if isinstance(data, dict):
             data = {k: v for k, v in data.items() if v is not None}
         return json.dumps(data, separators=(",", ":"), ensure_ascii=False)
 
-    def _sign_event(self, event: Dict) -> Dict:
+    def _sign_event(self, event: dict) -> dict:
         signature_data = self._json_dumps(
             [
                 0,
@@ -386,14 +386,14 @@ async def test_make_invoice():
     await wallet1.send_event(
         "make_invoice", {"amount": 1, "description": "test 123", "expiry": 1000}
     )
-    result, tags, error = await wallet1.wait_for("make_invoice")
+    result, _, error = await wallet1.wait_for("make_invoice")
     logger.info(error)
     assert error, "Expected internal error, because amount is too low"
 
     await wallet1.send_event(
         "make_invoice", {"amount": 123000, "description": "test 123", "expiry": 1000}
     )
-    result, tags, error = await wallet1.wait_for("make_invoice")
+    result, _, error = await wallet1.wait_for("make_invoice")
     assert not error
     assert result["type"] == "incoming"
     assert result["description"] == "test 123"
@@ -424,7 +424,7 @@ async def test_lookup_invoice():
     await wallet1.send_event(
         "make_invoice", {"amount": 123000, "description": "test 123", "expiry": 1000}
     )
-    result, tags, error = await wallet1.wait_for("make_invoice")
+    result, _, error = await wallet1.wait_for("make_invoice")
     assert not error
     assert result["type"] == "incoming"
     assert result["description"] == "test 123"
@@ -440,7 +440,7 @@ async def test_lookup_invoice():
     await wallet2.start()
 
     await wallet2.send_event("lookup_invoice", {"invoice": result["invoice"]})
-    result, tags, error = await wallet2.wait_for("lookup_invoice")
+    result, _, error = await wallet2.wait_for("lookup_invoice")
     assert not error
     assert result["type"] == "incoming"
     assert result["description"] == "test 123"
@@ -465,7 +465,7 @@ async def test_get_info():
     await wallet1.start()
 
     await wallet1.send_event("get_info", {})
-    result, tags, error = await wallet1.wait_for("get_info")
+    result, _, error = await wallet1.wait_for("get_info")
     assert not error
     assert result["alias"] == "LNBits_NWC_SP"
     assert result["color"] == ""
@@ -492,33 +492,33 @@ async def test_permisions():
     await wallet1.start()
 
     await wallet1.send_event("get_info", {})
-    result, tags, error = await wallet1.wait_for("get_info")
+    result, _, error = await wallet1.wait_for("get_info")
     assert not error
 
     await wallet1.send_event(
         "make_invoice", {"amount": 123000, "description": "test 123", "expiry": 1000}
     )
-    result, tags, error = await wallet1.wait_for("make_invoice")
+    result, _, error = await wallet1.wait_for("make_invoice")
     assert error
 
     await wallet1.close()
     await wallet2.start()
 
     await wallet2.send_event("get_info", {})
-    result, tags, error = await wallet2.wait_for("get_info")
+    result, _, error = await wallet2.wait_for("get_info")
     assert error
 
     await wallet2.send_event(
         "make_invoice", {"amount": 123000, "description": "test 123", "expiry": 1000}
     )
-    result, tags, error = await wallet2.wait_for("make_invoice")
+    result, _, error = await wallet2.wait_for("make_invoice")
     assert not error
 
     await wallet2.close()
     await wallet3.start()
 
     await wallet3.send_event("get_info", {})
-    result, tags, error = await wallet3.wait_for("get_info")
+    result, _, error = await wallet3.wait_for("get_info")
     assert not error
     assert "make_invoice" in result["methods"]
     assert "pay_invoice" in result["methods"]
@@ -548,7 +548,7 @@ async def test_pay_invoice_and_balance():
         "make_invoice", {"amount": 123000, "description": "test 123"}
     )
 
-    result, tags, error = await wallet1.wait_for("make_invoice")
+    result, _, error = await wallet1.wait_for("make_invoice")
     assert not error
     assert result["invoice"]
 
@@ -557,7 +557,7 @@ async def test_pay_invoice_and_balance():
     await wallet2.start()
 
     await wallet2.send_event("pay_invoice", {"invoice": invoice})
-    result, tags, error = await wallet2.wait_for("pay_invoice")
+    result, _, error = await wallet2.wait_for("pay_invoice")
     assert not error
     assert result["preimage"]
 
@@ -569,12 +569,12 @@ async def test_pay_invoice_and_balance():
     assert wallet2_balance_new == wallet2_balance - 123000
 
     await wallet1.send_event("get_balance", {})
-    result, tags, error = await wallet1.wait_for("get_balance")
+    result, _, error = await wallet1.wait_for("get_balance")
     assert not error
     assert result["balance"] == wallet1_balance_new
 
     await wallet2.send_event("get_balance", {})
-    result, tags, error = await wallet2.wait_for("get_balance")
+    result, _, error = await wallet2.wait_for("get_balance")
     assert not error
     assert result["balance"] == wallet2_balance_new
 
@@ -703,13 +703,13 @@ async def test_insufficient_balance():
     await wallet2.send_event(
         "make_invoice", {"amount": amount_to_spend, "description": "test 123"}
     )
-    result, tags, error = await wallet2.wait_for("make_invoice")
+    result, _, error = await wallet2.wait_for("make_invoice")
     assert not error
     assert result["invoice"]
     invoice = result["invoice"]
 
     await wallet1.send_event("pay_invoice", {"invoice": invoice})
-    result, tags, error = await wallet1.wait_for("pay_invoice")
+    result, _, error = await wallet1.wait_for("pay_invoice")
     logger.info(error)
     logger.info(result)
     logger.info(amount_to_spend)
@@ -735,7 +735,7 @@ async def test_expiry():
     await wallet3.send_event(
         "make_invoice", {"amount": 123000, "description": "test 123"}
     )
-    result, tags, error = await wallet3.wait_for("make_invoice")
+    _, _, error = await wallet3.wait_for("make_invoice")
     assert error
     assert (
         error["code"] == "UNAUTHORIZED"
@@ -768,22 +768,22 @@ async def test_budget():
     await wallet1.send_event(
         "make_invoice", {"amount": 101000, "description": "Invalid"}
     )
-    result, tags, error = await wallet1.wait_for("make_invoice")
+    result, _, error = await wallet1.wait_for("make_invoice")
     assert not error
 
     await wallet3.send_event("pay_invoice", {"invoice": result["invoice"]})
-    result, tags, error = await wallet3.wait_for("pay_invoice")
+    result, _, error = await wallet3.wait_for("pay_invoice")
     assert error
     assert (
         error["code"] == "QUOTA_EXCEEDED"
     ), "Expected QUOTA_EXCEEDED error, because the budget was exceeded"
 
     await wallet1.send_event("make_invoice", {"amount": 99000, "description": "Valid"})
-    result, tags, error = await wallet1.wait_for("make_invoice")
+    result, _, error = await wallet1.wait_for("make_invoice")
     assert not error
 
     await wallet3.send_event("pay_invoice", {"invoice": result["invoice"]})
-    result, tags, error = await wallet3.wait_for("pay_invoice")
+    result, _, error = await wallet3.wait_for("pay_invoice")
     assert not error, "Expected successful payment, because the budget was not exceeded"
     assert result["preimage"]
 
@@ -791,11 +791,11 @@ async def test_budget():
         "make_invoice", {"amount": 100000 - 99000 + 1000, "description": "Invalid"}
     )
 
-    result, tags, error = await wallet1.wait_for("make_invoice")
+    result, _, error = await wallet1.wait_for("make_invoice")
     assert not error
 
     await wallet3.send_event("pay_invoice", {"invoice": result["invoice"]})
-    result, tags, error = await wallet3.wait_for("pay_invoice")
+    result, _, error = await wallet3.wait_for("pay_invoice")
     assert error
     assert (
         error["code"] == "QUOTA_EXCEEDED"
@@ -824,21 +824,21 @@ async def test_budget_refresh():
     await wallet1.send_event(
         "make_invoice", {"amount": 100000, "description": "Invalid"}
     )
-    result, tags, error = await wallet1.wait_for("make_invoice")
+    result, _, error = await wallet1.wait_for("make_invoice")
     assert not error
 
     await wallet1.send_event(
         "make_invoice", {"amount": 100000, "description": "Invalid"}
     )
-    result2, tags, error = await wallet1.wait_for("make_invoice")
+    result2, _, error = await wallet1.wait_for("make_invoice")
     assert not error
 
     await wallet3.send_event("pay_invoice", {"invoice": result["invoice"]})
-    result, tags, error = await wallet3.wait_for("pay_invoice")
+    result, _, error = await wallet3.wait_for("pay_invoice")
     assert not error, "Expected successful payment, because the budget was not exceeded"
 
     await wallet3.send_event("pay_invoice", {"invoice": result2["invoice"]})
-    result, tags, error = await wallet3.wait_for("pay_invoice")
+    result, _, error = await wallet3.wait_for("pay_invoice")
     assert error
     assert (
         error["code"] == "QUOTA_EXCEEDED"
@@ -846,11 +846,11 @@ async def test_budget_refresh():
 
     await asyncio.sleep(5)
     await wallet1.send_event("make_invoice", {"amount": 100000, "description": "Valid"})
-    result, tags, error = await wallet1.wait_for("make_invoice")
+    result, _, error = await wallet1.wait_for("make_invoice")
     assert not error
 
     await wallet3.send_event("pay_invoice", {"invoice": result["invoice"]})
-    result, tags, error = await wallet3.wait_for("pay_invoice")
+    result, _, error = await wallet3.wait_for("pay_invoice")
     assert not error, "Expected successful payment, because the budget was refreshed"
 
     await wallet3.close()
@@ -916,6 +916,7 @@ async def test_invalid_invoice_handling():
     # Send invalid invoice
     await wallet.send_event("pay_invoice", {"invoice": "invalid_lninvoice"})
     _, _, error = await wallet.wait_for("pay_invoice")
+    assert error
     assert error["code"] == "INTERNAL"
 
 
@@ -935,6 +936,7 @@ async def test_replay_attack():
     # Replay same message
     await wallet.send_event("pay_invoice", {"invoice": valid_invoice})
     _, _, error = await wallet.wait_for("pay_invoice")
+    assert error
     assert error["code"] == "PAYMENT_FAILED"
 
 
@@ -967,6 +969,7 @@ async def test_budget_bypass():
     invoice2 = await create_valid_invoice(wallet, 60000)
     await wallet.send_event("pay_invoice", {"invoice": invoice2})
     _, _, error = await wallet.wait_for("pay_invoice")
+    assert error
     assert error["code"] == "QUOTA_EXCEEDED"
 
 
@@ -992,7 +995,7 @@ async def create_valid_invoice(wallet, amount=1000):
     await wallet.send_event(
         "make_invoice", {"amount": amount, "description": "test invoice"}
     )
-    result, tags, error = await wallet.wait_for("make_invoice")
+    result, _, error = await wallet.wait_for("make_invoice")
     if error:
         raise Exception(f"Failed to create invoice: {error}")
     return result["invoice"]

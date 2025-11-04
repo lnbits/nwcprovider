@@ -7,18 +7,19 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Create github release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
         run: |
           gh release create "$tag" --generate-notes
+
   pullrequest:
     needs: [release]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           token: ${{ secrets.EXT_GITHUB }}
           repository: lnbits/lnbits-extensions
@@ -28,6 +29,7 @@ jobs:
         run: |
           git config --global user.name "alan"
           git config --global user.email "alan@lnbits.com"
+
       - name: Create pull request in extensions repo
         env:
           GH_TOKEN: ${{ secrets.EXT_GITHUB }}
@@ -40,12 +42,16 @@ jobs:
         run: |
           cd lnbits-extensions
           git checkout -b $branch
+
           # if there is another open PR
           git pull origin $branch || echo "branch does not exist"
+
           sh util.sh update_extension $repo_name $tag
+
           git add -A
           git commit -am "$title"
           git push origin $branch
+
           # check if pr exists before creating it
           gh config set pager cat
           check=$(gh pr list -H $branch | wc -l)

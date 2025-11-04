@@ -8,6 +8,5 @@ node_modules
 .mypy_cache
 data
 .vscode
-package.json
-package-lock.json
 dump
+.venv
