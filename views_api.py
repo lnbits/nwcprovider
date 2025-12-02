@@ -90,7 +90,7 @@ async def api_get_nwc(
     )
 
     if not nwc:
-        raise Exception("Pubkey has no associated wallet")
+        raise ValueError("Pubkey has no associated wallet")
     res = NWCGetResponse(
         data=nwc, budgets=await get_budgets_nwc(GetBudgetsNWC(pubkey=pubkey))
     )
