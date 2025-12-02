@@ -67,4 +67,4 @@ jobs:
           cd ..
           pwd
           ls
-          cat data/logs/debug.log
+          ls lnbits
