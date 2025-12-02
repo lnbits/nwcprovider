@@ -34,17 +34,17 @@ def test_supported_methods(nwc_service_provider):
 def test_encrytdecrypt(nwc_service_provider, nwc_service_provider2):
     content = "Hello World"
     enc_a = nwc_service_provider.private_key.encrypt_message(
-        content, nwc_service_provider2.public_key_hex[2:]
+        content, nwc_service_provider2.public_key_hex
     )
     enc_b = nwc_service_provider2.private_key.encrypt_message(
-        content, nwc_service_provider.public_key_hex[2:]
+        content, nwc_service_provider.public_key_hex
     )
 
     dec_a = nwc_service_provider2.private_key.decrypt_message(
-        enc_a, nwc_service_provider.public_key_hex[2:]
+        enc_a, nwc_service_provider.public_key_hex
     )
     dec_b = nwc_service_provider.private_key.decrypt_message(
-        enc_b, nwc_service_provider2.public_key_hex[2:]
+        enc_b, nwc_service_provider2.public_key_hex
     )
 
     assert dec_a == content
