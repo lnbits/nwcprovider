@@ -296,7 +296,7 @@ class NWCWallet:
         }
         logger.debug("Sending event: " + str(event))
         event["content"] = self.private_key.encrypt_message(
-            event["content"], self.provider_pub_hex
+            event["content"], self.provider_pub_hex[2:]
         )
         self._sign_event(event)
         logger.debug("Sending event (encrypted): " + str(event))

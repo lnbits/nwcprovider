@@ -365,7 +365,7 @@ class NWCServiceProvider:
             res["tags"].append(["p", nwc_pubkey])
             # Finalize response event
             res["content"] = self.private_key.encrypt_message(
-                res["content"], nwc_pubkey
+                res["content"], nwc_pubkey[2:]
             )
             self._sign_event(res)
 

@@ -34,10 +34,10 @@ def test_supported_methods(nwc_service_provider):
 def test_encrytdecrypt(nwc_service_provider, nwc_service_provider2):
     content = "Hello World"
     enc_a = nwc_service_provider.private_key.encrypt_message(
-        content, nwc_service_provider2.public_key_hex
+        content, nwc_service_provider2.public_key_hex[2:]
     )
     enc_b = nwc_service_provider2.private_key.encrypt_message(
-        content, nwc_service_provider.public_key_hex
+        content, nwc_service_provider.public_key_hex[2:]
     )
 
     dec_a = nwc_service_provider2.private_key.decrypt_message(
@@ -80,7 +80,7 @@ async def test_handle(nwc_service_provider, nwc_service_provider2):
         {"method": "pay_invoice", "params": {"invoice": "abc"}}
     )
     content = nwc_service_provider.private_key.encrypt_message(
-        content, nwc_service_provider2.public_key_hex
+        content, nwc_service_provider2.public_key_hex[2:]
     )
     event = {
         "kind": 23194,
