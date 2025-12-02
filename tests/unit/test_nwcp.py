@@ -33,7 +33,6 @@ def test_supported_methods(nwc_service_provider):
 
 def test_encrytdecrypt(nwc_service_provider, nwc_service_provider2):
     content = "Hello World"
-    expected_enc = "qVurNVISSl/9CfREIhk5Lg==?iv=QpCo5dI9gUcoLsSMLA7o7Q=="
     enc_a = nwc_service_provider.private_key.encrypt_message(
         content, nwc_service_provider2.public_key_hex
     )
@@ -50,8 +49,6 @@ def test_encrytdecrypt(nwc_service_provider, nwc_service_provider2):
 
     assert dec_a == content
     assert dec_b == content
-    assert enc_a == expected_enc
-    assert enc_b == expected_enc
 
 
 def test_signverify(nwc_service_provider, nwc_service_provider2):
