@@ -856,6 +856,7 @@ async def test_idor_vulnerability():
             headers={"X-Api-Key": wallets["wallet2"]["admin_key"]},
         )
         # assert resp.status_code == 500
+        print("### Response:", resp.status_code, resp.text)
         assert "Pubkey has no associated wallet" in resp.text
 
 
