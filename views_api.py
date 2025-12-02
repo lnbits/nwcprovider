@@ -1,10 +1,10 @@
 from http import HTTPStatus
 
-from coincurve import PrivateKey
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from lnbits.core.models import WalletTypeInfo
 from lnbits.decorators import check_admin, require_admin_key
+from pynostr.key import PrivateKey
 
 from .crud import (
     create_nwc,
@@ -127,7 +127,7 @@ async def api_get_pairing_url(req: Request, secret: str) -> str:
     ppk = psk.public_key
     if not ppk:
         raise Exception("Error generating pubkey")
-    ppubkey = ppk.format().hex()[2:]  # remove 0x02 or 0x03 prefix
+    ppubkey = ppk.hex()
     url = "nostr+walletconnect://"
     url += ppubkey
     url += "?relay=" + relay

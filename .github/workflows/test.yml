@@ -58,4 +58,13 @@ jobs:
           sleep 1
           pwd
           ls
+          cd ..
+          pwd
+          ls
+          cd ..
+          pwd
+          ls
+          cd ..
+          pwd
+          ls
           cat data/logs/debug.log
