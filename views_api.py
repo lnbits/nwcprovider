@@ -79,6 +79,7 @@ async def api_get_nwc(
     wallet: WalletTypeInfo = Depends(require_admin_key),
 ) -> NWCGetResponse:
     try:
+        logger.info("### api_get_nwc 000:", pubkey, include_expired)
         print("### api_get_nwc 000:", pubkey, include_expired)
         wallet_id = wallet.wallet.id
 
@@ -105,7 +106,7 @@ async def api_get_nwc(
     except Exception as e:
         print("### api_get_nwc error:", str(e))
         logger.error(e)
-        raise e
+        raise ValueError(str(e)) from e
 
 
 # Get pairing url for given secret
