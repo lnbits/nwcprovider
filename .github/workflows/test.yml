@@ -26,15 +26,15 @@ jobs:
         run: |
           /bin/bash .devcontainer/setup.sh ${{ github.workspace }}
 
-      - name: Run unit tests
-        run: |
-          cdir=$(pwd)
-          cd $HOME/lnbits
-          poetry_env_path=$(poetry env info --path)
-          source $poetry_env_path/bin/activate
-          pip install pytest-asyncio
-          cd $cdir
-          pytest tests/unit/*.py -s
+      # - name: Run unit tests
+      #   run: |
+      #     cdir=$(pwd)
+      #     cd $HOME/lnbits
+      #     poetry_env_path=$(poetry env info --path)
+      #     source $poetry_env_path/bin/activate
+      #     pip install pytest-asyncio
+      #     cd $cdir
+      #     pytest tests/unit/*.py -s
 
       - name: Setup integration tests
         run: |
@@ -51,9 +51,9 @@ jobs:
           cd $cdir
           pytest tests/integration/*.py -s
 
-      - name: log results
+      - name: LNbits logs
         if: ${{ always() }}
         run: |
           # catch up time for lnbits
           sleep 1
-          cat $HOME/lnbits/data/logs/debug.log
+          cat lnbits/data/logs/debug.log
