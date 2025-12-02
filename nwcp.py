@@ -570,7 +570,7 @@ class NWCServiceProvider:
         event["pubkey"] = self.public_key_hex
 
         signature = self.private_key.sign(bytes.fromhex(event_id))
-        event["sig"] = signature
+        event["sig"] = signature.hex()  # type: ignore
         return event
 
     async def cleanup(self):
