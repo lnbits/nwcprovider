@@ -91,14 +91,14 @@ class NWCServiceProvider:
             self.private_key = PrivateKey()
             self.private_key_hex = self.private_key.hex()
         else:
-            self.private_key = PrivateKey(bytes.fromhex(private_key_hex))
+            self.private_key = PrivateKey.from_hex(private_key_hex)
             self.private_key_hex = private_key_hex
 
         self.public_key = self.private_key.public_key
         if not self.public_key:
             raise Exception("Invalid public key")
 
-        self.public_key_hex = self.public_key.hex()
+        self.public_key_hex = self.public_key.hex()[2:]
 
         # List of supported methods
         self.supported_methods: list[str] = []
