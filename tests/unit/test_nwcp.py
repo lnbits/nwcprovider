@@ -80,7 +80,7 @@ async def test_handle(nwc_service_provider, nwc_service_provider2):
         {"method": "pay_invoice", "params": {"invoice": "abc"}}
     )
     content = nwc_service_provider.private_key.encrypt_message(
-        content, nwc_service_provider2.public_key_hex[2:]
+        content, nwc_service_provider2.public_key_hex
     )
     event = {
         "kind": 23194,
@@ -106,7 +106,7 @@ async def test_handle(nwc_service_provider, nwc_service_provider2):
     for revent in sent_events:
         assert nwc_service_provider2._verify_event(revent)
         content = nwc_service_provider2.private_key.decrypt_message(
-            revent["content"], nwc_service_provider.public_key_hex[2:]
+            revent["content"], nwc_service_provider.public_key_hex
         )
         logger.debug(event)
         logger.debug(revent)

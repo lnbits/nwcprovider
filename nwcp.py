@@ -98,7 +98,7 @@ class NWCServiceProvider:
         if not self.public_key:
             raise Exception("Invalid public key")
 
-        self.public_key_hex = self.public_key.hex()[2:]
+        self.public_key_hex = self.public_key.hex()
 
         # List of supported methods
         self.supported_methods: list[str] = []
@@ -314,7 +314,7 @@ class NWCServiceProvider:
         nwc_pubkey = event["pubkey"]
         content = event["content"]
         # Decrypt the content
-        content = self.private_key.decrypt_message(content, nwc_pubkey[2:])
+        content = self.private_key.decrypt_message(content, nwc_pubkey)
         # Deserialize content
         content = json.loads(content)
         # Handle request
@@ -365,7 +365,7 @@ class NWCServiceProvider:
             res["tags"].append(["p", nwc_pubkey])
             # Finalize response event
             res["content"] = self.private_key.encrypt_message(
-                res["content"], nwc_pubkey[2:]
+                res["content"], nwc_pubkey
             )
             self._sign_event(res)
 
