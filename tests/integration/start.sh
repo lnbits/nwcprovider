@@ -19,8 +19,8 @@ fi
 docker run --name=lnbits_nwcprovider_ext_nostr_test \
 -d \
 --rm \
--v $PWD/strfry.conf:/etc/strfry.conf \
--v $PWD/strfry-data:/app/strfry-db \
+-v $PWD/strfry.conf:/etc/strfry.conf:Z \
+-v $PWD/strfry-data:/app/strfry-db:Z \
 -p 7777:7777 \
 ghcr.io/hoytech/strfry:latest
 
