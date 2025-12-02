@@ -17,7 +17,8 @@ fi
 
 # Start nostr Relay
 docker run --name=lnbits_nwcprovider_ext_nostr_test \
--i \
+-d \
+--rm \
 -v $PWD/strfry.conf:/etc/strfry.conf:Z \
 -v $PWD/strfry-data:/app/strfry-db:Z \
 -p 7777:7777 \
