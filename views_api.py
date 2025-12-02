@@ -85,14 +85,19 @@ async def api_get_nwc(
     assert_valid_wallet_id(wallet_id)
     # ## #
 
+    print("### api_get_nwc 100:", pubkey)
+
     nwc = await get_nwc(
         GetNWC(pubkey=pubkey, wallet=wallet_id, include_expired=include_expired)
     )
+
+    print("### api_get_nwc 100:", nwc)
     if not nwc:
         raise Exception("Pubkey has no associated wallet")
     res = NWCGetResponse(
         data=nwc, budgets=await get_budgets_nwc(GetBudgetsNWC(pubkey=pubkey))
     )
+    print("### api_get_nwc 100:", res)
     return res
 
 
