@@ -11,14 +11,14 @@ from ...nwcp import NWCServiceProvider
 @pytest.fixture
 def nwc_service_provider():
     return NWCServiceProvider(
-        "02d7b5232fba0e02e32cfe26f20cdf2c803b27ecd81052c2dd5d17e5e1a333fe58", ""
+        "d7b5232fba0e02e32cfe26f20cdf2c803b27ecd81052c2dd5d17e5e1a333fe58", ""
     )
 
 
 @pytest.fixture
 def nwc_service_provider2():
     return NWCServiceProvider(
-        "02ce40821040275f72f3074a89770db3e2744b189f204807c867840eb58565de51", ""
+        "ce40821040275f72f3074a89770db3e2744b189f204807c867840eb58565de51", ""
     )
 
 
