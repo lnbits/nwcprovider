@@ -82,7 +82,7 @@ async def test_handle(nwc_service_provider, nwc_service_provider2):
     content = nwc_service_provider._json_dumps(
         {"method": "pay_invoice", "params": {"invoice": "abc"}}
     )
-    content = nwc_service_provider._encrypt_content(
+    content = nwc_service_provider.private_key.encrypt_message(
         content, nwc_service_provider2.public_key_hex, 21
     )
     event = {
