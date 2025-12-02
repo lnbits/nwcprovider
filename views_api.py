@@ -127,7 +127,7 @@ async def api_get_pairing_url(req: Request, secret: str) -> str:
     ppk = psk.public_key
     if not ppk:
         raise Exception("Error generating pubkey")
-    ppubkey = ppk.hex()
+    ppubkey = ppk.format().hex()[2:]  # remove 0x02 or 0x03 prefix
     url = "nostr+walletconnect://"
     url += ppubkey
     url += "?relay=" + relay
