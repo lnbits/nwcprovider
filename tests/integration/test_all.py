@@ -9,7 +9,7 @@ from typing import Union
 import bolt11
 import httpx
 import pytest
-import secp256k1
+from coincurve import PrivateKey, PublicKey
 from Cryptodome import Random
 from Cryptodome.Cipher import AES
 from Cryptodome.Util.Padding import pad, unpad
@@ -95,12 +95,12 @@ async def refresh_wallet_balances():
 
 
 def gen_keypair():
-    private_key_hex = bytes.hex(secp256k1._gen_private_key())
-    private_key = secp256k1.PrivateKey(bytes.fromhex(private_key_hex))
-    public_key = private_key.pubkey
+    private_key = PrivateKey()
+    private_key_hex = private_key.to_hex()
+    public_key = private_key.public_key
     if not public_key:
         raise Exception("Error generating pubkey")
-    public_key_hex = public_key.serialize().hex()[2:]
+    public_key_hex = public_key.format().hex()
     return {"priv": private_key_hex, "pub": public_key_hex}
 
 
@@ -164,12 +164,12 @@ class NWCWallet:
         self.event_queue = []
         self.subscriptions_count = 0
         self.sub_id = ""
-        self.private_key = secp256k1.PrivateKey(bytes.fromhex(self.secret))
+        self.private_key = PrivateKey.from_hex(self.secret)
         self.private_key_hex = self.secret
-        self.public_key = self.private_key.pubkey
+        self.public_key = self.private_key.public_key
         if not self.public_key:
             raise Exception("Error generating pubkey")
-        self.public_key_hex = self.public_key.serialize().hex()[2:]
+        self.public_key_hex = self.public_key.format().hex()
         self.task = None
 
     async def close(self):
@@ -246,14 +246,15 @@ class NWCWallet:
     def _encrypt_content(
         self, content: str, pubkey_hex: str, iv_seed: int | None = None
     ) -> str:
-        pubkey = secp256k1.PublicKey(bytes.fromhex("02" + pubkey_hex), True)
-        shared = pubkey.tweak_mul(bytes.fromhex(self.private_key_hex)).serialize()[1:]
+        pk = PublicKey(bytes.fromhex("02" + pubkey_hex))
+        sk = self.private_key
+        shared = pk.multiply(sk.secret)
         if not iv_seed:
             iv = Random.new().read(AES.block_size)
         else:
             iv = hashlib.sha256(iv_seed.to_bytes(32, byteorder="big")).digest()
             iv = iv[: AES.block_size]
-        aes = AES.new(shared, AES.MODE_CBC, iv)
+        aes = AES.new(shared.format(), AES.MODE_CBC, iv)
         content_bytes = content.encode("utf-8")
         content_bytes = pad(content_bytes, AES.block_size)
         encrypted_b64 = base64.b64encode(aes.encrypt(content_bytes)).decode("ascii")
@@ -262,12 +263,13 @@ class NWCWallet:
         return encrypted_content
 
     def _decrypt_content(self, content: str, pubkey_hex: str) -> str:
-        pubkey = secp256k1.PublicKey(bytes.fromhex("02" + pubkey_hex), True)
-        shared = pubkey.tweak_mul(bytes.fromhex(self.private_key_hex)).serialize()[1:]
+        pk = PublicKey(bytes.fromhex("02" + pubkey_hex))
+        sk = self.private_key
+        shared = pk.multiply(sk.secret)
         (encrypted_content_b64, iv_b64) = content.split("?iv=")
         encrypted_content = base64.b64decode(encrypted_content_b64.encode("ascii"))
         iv = base64.b64decode(iv_b64.encode("ascii"))
-        aes = AES.new(shared, AES.MODE_CBC, iv)
+        aes = AES.new(shared.format(), AES.MODE_CBC, iv)
         decrypted_bytes = aes.decrypt(encrypted_content)
         decrypted_bytes = unpad(decrypted_bytes, AES.block_size)
         decrypted = decrypted_bytes.decode("utf-8")
@@ -312,9 +314,7 @@ class NWCWallet:
         event_id = hashlib.sha256(signature_data.encode()).hexdigest()
         event["id"] = event_id
         event["pubkey"] = self.public_key_hex
-        signature = (
-            self.private_key.schnorr_sign(bytes.fromhex(event_id), None, raw=True)
-        ).hex()
+        signature = (self.private_key.sign_schnorr(bytes.fromhex(event_id))).hex()
         event["sig"] = signature
         return event
 

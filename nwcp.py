@@ -7,7 +7,7 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any, Union
 
-import secp256k1
+from coincurve import PrivateKey, PublicKey, PublicKeyXOnly
 from Cryptodome import Random
 from Cryptodome.Cipher import AES
 from Cryptodome.Util.Padding import pad, unpad
@@ -75,7 +75,7 @@ class MainSubscription:
 class NWCServiceProvider:
     def __init__(
         self,
-        private_key: str | None = None,
+        private_key_hex: str | None = None,
         relay: str | None = None,
         handle_missed_events: int = 0,
     ):
@@ -90,15 +90,18 @@ class NWCServiceProvider:
             )
         self.relay = relay
 
-        if not private_key:  # Create random key
-            private_key = bytes.hex(secp256k1._gen_private_key())
+        if not private_key_hex:  # Create random key
+            self.private_key = PrivateKey()
+            self.private_key_hex = self.private_key.to_hex()
+        else:
+            self.private_key = PrivateKey(bytes.fromhex(private_key_hex))
+            self.private_key_hex = private_key_hex
 
-        self.private_key = secp256k1.PrivateKey(bytes.fromhex(private_key))
-        self.private_key_hex = private_key
-        self.public_key = self.private_key.pubkey
+        self.public_key = self.private_key.public_key
         if not self.public_key:
             raise Exception("Invalid public key")
-        self.public_key_hex = self.public_key.serialize().hex()[2:]
+
+        self.public_key_hex = self.public_key.format().hex()
 
         # List of supported methods
         self.supported_methods: list[str] = []
@@ -526,8 +529,9 @@ class NWCServiceProvider:
         Returns:
             str: The encrypted content.
         """
-        pubkey = secp256k1.PublicKey(bytes.fromhex("02" + pubkey_hex), True)
-        shared = pubkey.tweak_mul(bytes.fromhex(self.private_key_hex)).serialize()[1:]
+        pk = PublicKey(bytes.fromhex("02" + pubkey_hex))
+        sk = self.private_key
+        shared = pk.multiply(sk.secret)
         # random iv (16B)
         if not iv_seed:
             iv = Random.new().read(AES.block_size)
@@ -535,7 +539,7 @@ class NWCServiceProvider:
             iv = hashlib.sha256(iv_seed.to_bytes(32, byteorder="big")).digest()
             iv = iv[: AES.block_size]
 
-        aes = AES.new(shared, AES.MODE_CBC, iv)
+        aes = AES.new(shared.format(), AES.MODE_CBC, iv)
 
         content_bytes = content.encode("utf-8")
 
@@ -558,15 +562,15 @@ class NWCServiceProvider:
         Returns:
             str: The decrypted content.
         """
-        pubkey = secp256k1.PublicKey(bytes.fromhex("02" + pubkey_hex), True)
-
-        shared = pubkey.tweak_mul(bytes.fromhex(self.private_key_hex)).serialize()[1:]
+        pk = PublicKey(bytes.fromhex("02" + pubkey_hex))
+        sk = self.private_key
+        shared = pk.multiply(sk.secret)
         # extract iv and content
         (encrypted_content_b64, iv_b64) = content.split("?iv=")
         encrypted_content = base64.b64decode(encrypted_content_b64.encode("ascii"))
         iv = base64.b64decode(iv_b64.encode("ascii"))
         # Decrypt
-        aes = AES.new(shared, AES.MODE_CBC, iv)
+        aes = AES.new(shared.format(), AES.MODE_CBC, iv)
         decrypted_bytes = aes.decrypt(encrypted_content)
         decrypted_bytes = unpad(decrypted_bytes, AES.block_size)
         decrypted = decrypted_bytes.decode("utf-8")
@@ -596,10 +600,8 @@ class NWCServiceProvider:
         if event_id != event["id"]:  # Invalid event id
             return False
         pubkey_hex = event["pubkey"]
-        pubkey = secp256k1.PublicKey(bytes.fromhex("02" + pubkey_hex), True)
-        if not pubkey.schnorr_verify(
-            bytes.fromhex(event_id), bytes.fromhex(event["sig"]), None, raw=True
-        ):
+        pubkey = PublicKeyXOnly(bytes.fromhex(pubkey_hex))
+        if not pubkey.verify(bytes.fromhex(event["sig"]), bytes.fromhex(event_id)):
             return False
         return True
 
@@ -628,9 +630,7 @@ class NWCServiceProvider:
         event["id"] = event_id
         event["pubkey"] = self.public_key_hex
 
-        signature = (
-            self.private_key.schnorr_sign(bytes.fromhex(event_id), None, raw=True)
-        ).hex()
+        signature = (self.private_key.sign_schnorr(bytes.fromhex(event_id))).hex()
         event["sig"] = signature
         return event
 

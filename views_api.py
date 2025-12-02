@@ -1,6 +1,6 @@
 from http import HTTPStatus
 
-import secp256k1
+from coincurve import PrivateKey
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from lnbits.core.models import WalletTypeInfo
@@ -123,11 +123,11 @@ async def api_get_pairing_url(req: Request, secret: str) -> str:
                 scheme = "wss"
             netloc += "/nostrclient/api/v1/relay"
             relay = f"{scheme}://{netloc}"
-    psk = secp256k1.PrivateKey(bytes.fromhex(pprivkey))
-    ppk = psk.pubkey
+    psk = PrivateKey.from_hex(pprivkey)
+    ppk = psk.public_key
     if not ppk:
         raise Exception("Error generating pubkey")
-    ppubkey = ppk.serialize().hex()[2:]
+    ppubkey = ppk.format().hex()
     url = "nostr+walletconnect://"
     url += ppubkey
     url += "?relay=" + relay

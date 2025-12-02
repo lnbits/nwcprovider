@@ -1,4 +1,4 @@
-import secp256k1
+from coincurve import PrivateKey
 
 
 async def m001_initial(db):
@@ -72,14 +72,14 @@ async def m003_default_config(db):
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
         """
     )
-    new_private_key = bytes.hex(secp256k1._gen_private_key())
+    private_key = PrivateKey()
     await db.execute(
         """
         INSERT INTO nwcprovider.config (key, value)
         VALUES ('provider_key', :provider_key)
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
         """,
-        {"provider_key": new_private_key},
+        {"provider_key": private_key.to_hex()},
     )
 
 
