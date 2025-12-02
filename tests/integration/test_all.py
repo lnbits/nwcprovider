@@ -279,7 +279,8 @@ class NWCWallet:
         event["id"] = event_id
         event["pubkey"] = self.public_key_hex
         signature = self.private_key.sign(bytes.fromhex(event_id))
-        event["sig"] = signature
+        # type error? returns str but is bytes
+        event["sig"] = signature.hex()  # type: ignore
         return event
 
     async def send_event(self, method, params):
