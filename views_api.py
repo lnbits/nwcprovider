@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from lnbits.core.models import WalletTypeInfo
 from lnbits.decorators import check_admin, require_admin_key
-from loguru import logger
 from pynostr.key import PrivateKey
 
 from .crud import (
@@ -78,35 +77,25 @@ async def api_get_nwc(
     include_expired: bool = False,
     wallet: WalletTypeInfo = Depends(require_admin_key),
 ) -> NWCGetResponse:
-    try:
-        logger.info("### api_get_nwc 000:", pubkey, include_expired)
-        print("### api_get_nwc 000:", pubkey, include_expired)
-        wallet_id = wallet.wallet.id
+    wallet_id = wallet.wallet.id
 
-        # hardening #
-        assert_valid_pubkey(pubkey)
-        assert_boolean(include_expired)
-        assert_valid_wallet_id(wallet_id)
-        # ## #
+    # hardening #
+    assert_valid_pubkey(pubkey)
+    assert_boolean(include_expired)
+    assert_valid_wallet_id(wallet_id)
+    # ## #
 
-        print("### api_get_nwc 100:", pubkey)
+    nwc = await get_nwc(
+        GetNWC(pubkey=pubkey, wallet=wallet_id, include_expired=include_expired)
+    )
 
-        nwc = await get_nwc(
-            GetNWC(pubkey=pubkey, wallet=wallet_id, include_expired=include_expired)
-        )
+    if not nwc:
+        raise Exception("Pubkey has no associated wallet")
+    res = NWCGetResponse(
+        data=nwc, budgets=await get_budgets_nwc(GetBudgetsNWC(pubkey=pubkey))
+    )
 
-        print("### api_get_nwc 100:", nwc)
-        if not nwc:
-            raise Exception("Pubkey has no associated wallet")
-        res = NWCGetResponse(
-            data=nwc, budgets=await get_budgets_nwc(GetBudgetsNWC(pubkey=pubkey))
-        )
-        print("### api_get_nwc 100:", res)
-        return res
-    except Exception as e:
-        print("### api_get_nwc error:", str(e))
-        logger.error(e)
-        raise ValueError(str(e)) from e
+    return res
 
 
 # Get pairing url for given secret

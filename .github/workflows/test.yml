@@ -50,21 +50,3 @@ jobs:
           pip install pytest-asyncio
           cd $cdir
           pytest tests/integration/*.py -s
-
-      - name: LNbits logs
-        if: ${{ always() }}
-        run: |
-          # catch up time for lnbits
-          sleep 1
-          pwd
-          ls
-          cd ..
-          pwd
-          ls
-          cd ..
-          pwd
-          ls
-          cd ..
-          pwd
-          ls
-          ls lnbits

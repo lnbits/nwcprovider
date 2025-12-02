@@ -847,16 +847,13 @@ async def test_idor_vulnerability():
     # Create NWC for wallet1
     nwc_wallet1 = await create_nwc("wallet1", "test_idor", ["pay"], [], 0)
 
-    print("### NWC Wallet1:", nwc_wallet1)
-
     # Attempt to access wallet1's NWC using wallet2's credentials
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             f"http://localhost:5002/nwcprovider/api/v1/nwc/{nwc_wallet1['pubkey']}",
             headers={"X-Api-Key": wallets["wallet2"]["admin_key"]},
         )
-        # assert resp.status_code == 500
-        print("### Response:", resp.status_code, resp.text)
+        assert resp.status_code == 400
         assert "Pubkey has no associated wallet" in resp.text
 
 
