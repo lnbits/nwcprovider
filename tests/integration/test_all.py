@@ -205,6 +205,7 @@ class NWCWallet:
 
     async def _run(self):
         while True:
+            print("### self.provider_pub_hex 100:", self.provider_pub_hex)
             try:
                 async with connect(self.relay) as ws:
                     self.ws = ws
@@ -212,7 +213,7 @@ class NWCWallet:
                     self.sub_id = self._get_new_subid()
                     res_filter = {
                         "kinds": [23195],
-                        "authors": [self.provider_pub_hex],
+                        "authors": [self.provider_pub_hex[2:]],
                         "since": int(time.time()),
                     }
                     await self.ws.send(
@@ -287,11 +288,12 @@ class NWCWallet:
         if not self.ws:
             raise Exception("Websocket not connected")
         await self._wait_for_connection()
+        print("### self.provider_pub_hex 200:", self.provider_pub_hex)
         event = {
             "created_at": int(time.time()),
             "kind": 23194,
             "tags": [
-                ["p", self.provider_pub_hex],
+                ["p", self.provider_pub_hex[2:]],
             ],
             "content": json.dumps({"method": method, "params": params}),
         }
