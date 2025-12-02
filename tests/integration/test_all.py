@@ -847,7 +847,7 @@ async def test_idor_vulnerability():
     # Create NWC for wallet1
     nwc_wallet1 = await create_nwc("wallet1", "test_idor", ["pay"], [], 0)
 
-    print("### NWC Wallet1:", nwc_wallet1['pubkey'])
+    print("### NWC Wallet1:", nwc_wallet1["pubkey"])
 
     # Attempt to access wallet1's NWC using wallet2's credentials
     async with httpx.AsyncClient() as client:
