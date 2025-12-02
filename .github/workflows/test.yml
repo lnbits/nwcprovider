@@ -56,4 +56,6 @@ jobs:
         run: |
           # catch up time for lnbits
           sleep 1
-          cat lnbits/data/logs/debug.log
+          pwd
+          ls
+          cat data/logs/debug.log
