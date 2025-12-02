@@ -314,7 +314,7 @@ class NWCServiceProvider:
         nwc_pubkey = event["pubkey"]
         content = event["content"]
         # Decrypt the content
-        content = self.private_key.decrypt_message(content, nwc_pubkey)
+        content = self.private_key.decrypt_message(content, nwc_pubkey[2:])
         # Deserialize content
         content = json.loads(content)
         # Handle request

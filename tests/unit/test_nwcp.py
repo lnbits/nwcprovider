@@ -41,10 +41,10 @@ def test_encrytdecrypt(nwc_service_provider, nwc_service_provider2):
     )
 
     dec_a = nwc_service_provider2.private_key.decrypt_message(
-        enc_a, nwc_service_provider.public_key_hex
+        enc_a, nwc_service_provider.public_key_hex[2:]
     )
     dec_b = nwc_service_provider.private_key.decrypt_message(
-        enc_b, nwc_service_provider2.public_key_hex
+        enc_b, nwc_service_provider2.public_key_hex[2:]
     )
 
     assert dec_a == content
@@ -106,7 +106,7 @@ async def test_handle(nwc_service_provider, nwc_service_provider2):
     for revent in sent_events:
         assert nwc_service_provider2._verify_event(revent)
         content = nwc_service_provider2.private_key.decrypt_message(
-            revent["content"], nwc_service_provider.public_key_hex
+            revent["content"], nwc_service_provider.public_key_hex[2:]
         )
         logger.debug(event)
         logger.debug(revent)

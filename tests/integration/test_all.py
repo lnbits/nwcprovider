@@ -245,7 +245,7 @@ class NWCWallet:
         if msg[0] == "EVENT":  # Event message
             event = msg[2]
             nwc_pubkey = event["pubkey"]
-            content = self.private_key.decrypt_message(event["content"], nwc_pubkey)
+            content = self.private_key.decrypt_message(event["content"], nwc_pubkey[2:])
             content = json.loads(content)
             self.event_queue.append(
                 {
