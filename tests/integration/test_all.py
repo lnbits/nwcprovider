@@ -100,7 +100,7 @@ def gen_keypair():
     public_key = private_key.public_key
     if not public_key:
         raise Exception("Error generating pubkey")
-    public_key_hex = public_key.format().hex()
+    public_key_hex = public_key.format().hex()[2:]
     return {"priv": private_key_hex, "pub": public_key_hex}
 
 
@@ -169,7 +169,7 @@ class NWCWallet:
         self.public_key = self.private_key.public_key
         if not self.public_key:
             raise Exception("Error generating pubkey")
-        self.public_key_hex = self.public_key.format().hex()
+        self.public_key_hex = self.public_key.format().hex()[2:]
         self.task = None
 
     async def close(self):

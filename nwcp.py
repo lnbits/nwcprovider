@@ -101,7 +101,7 @@ class NWCServiceProvider:
         if not self.public_key:
             raise Exception("Invalid public key")
 
-        self.public_key_hex = self.public_key.format().hex()
+        self.public_key_hex = self.public_key.format().hex()[2:]
 
         # List of supported methods
         self.supported_methods: list[str] = []
