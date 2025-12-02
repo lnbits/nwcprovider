@@ -205,7 +205,6 @@ class NWCWallet:
 
     async def _run(self):
         while True:
-            print("### self.provider_pub_hex 100:", self.provider_pub_hex)
             try:
                 async with connect(self.relay) as ws:
                     self.ws = ws
@@ -288,7 +287,6 @@ class NWCWallet:
         if not self.ws:
             raise Exception("Websocket not connected")
         await self._wait_for_connection()
-        print("### self.provider_pub_hex 200:", self.provider_pub_hex)
         event = {
             "created_at": int(time.time()),
             "kind": 23194,
@@ -848,6 +846,8 @@ async def test_idor_vulnerability():
     """Test Insecure Direct Object Reference through pubkey manipulation"""
     # Create NWC for wallet1
     nwc_wallet1 = await create_nwc("wallet1", "test_idor", ["pay"], [], 0)
+
+    print("### NWC Wallet1:", nwc_wallet1['pubkey'])
 
     # Attempt to access wallet1's NWC using wallet2's credentials
     async with httpx.AsyncClient() as client:
