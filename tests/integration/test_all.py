@@ -212,7 +212,7 @@ class NWCWallet:
                     self.sub_id = self._get_new_subid()
                     res_filter = {
                         "kinds": [23195],
-                        "authors": [self.provider_pub_hex[2:]],
+                        "authors": [self.provider_pub_hex],
                         "since": int(time.time()),
                     }
                     await self.ws.send(
@@ -291,13 +291,13 @@ class NWCWallet:
             "created_at": int(time.time()),
             "kind": 23194,
             "tags": [
-                ["p", self.provider_pub_hex[2:]],
+                ["p", self.provider_pub_hex],
             ],
             "content": json.dumps({"method": method, "params": params}),
         }
         logger.debug("Sending event: " + str(event))
         event["content"] = self.private_key.encrypt_message(
-            event["content"], self.provider_pub_hex[2:]
+            event["content"], self.provider_pub_hex
         )
         self._sign_event(event)
         logger.debug("Sending event (encrypted): " + str(event))
