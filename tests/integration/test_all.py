@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import hashlib
 import json
 import random
@@ -9,11 +8,8 @@ from typing import Union
 import bolt11
 import httpx
 import pytest
-from coincurve import PrivateKey, PublicKey
-from Cryptodome import Random
-from Cryptodome.Cipher import AES
-from Cryptodome.Util.Padding import pad, unpad
 from loguru import logger
+from pynostr.key import PrivateKey
 from websockets.legacy.client import connect
 
 wallets = {
@@ -96,11 +92,11 @@ async def refresh_wallet_balances():
 
 def gen_keypair():
     private_key = PrivateKey()
-    private_key_hex = private_key.to_hex()
+    private_key_hex = private_key.hex()
     public_key = private_key.public_key
     if not public_key:
         raise Exception("Error generating pubkey")
-    public_key_hex = public_key.format().hex()[2:]
+    public_key_hex = public_key.hex()[2:]
     return {"priv": private_key_hex, "pub": public_key_hex}
 
 
@@ -169,7 +165,7 @@ class NWCWallet:
         self.public_key = self.private_key.public_key
         if not self.public_key:
             raise Exception("Error generating pubkey")
-        self.public_key_hex = self.public_key.format().hex()[2:]
+        self.public_key_hex = self.public_key.hex()[2:]
         self.task = None
 
     async def close(self):
@@ -243,45 +239,13 @@ class NWCWallet:
             else:
                 break
 
-    def _encrypt_content(
-        self, content: str, pubkey_hex: str, iv_seed: int | None = None
-    ) -> str:
-        pk = PublicKey(bytes.fromhex("02" + pubkey_hex))
-        sk = self.private_key
-        shared = pk.multiply(sk.secret)
-        if not iv_seed:
-            iv = Random.new().read(AES.block_size)
-        else:
-            iv = hashlib.sha256(iv_seed.to_bytes(32, byteorder="big")).digest()
-            iv = iv[: AES.block_size]
-        aes = AES.new(shared.format(), AES.MODE_CBC, iv)
-        content_bytes = content.encode("utf-8")
-        content_bytes = pad(content_bytes, AES.block_size)
-        encrypted_b64 = base64.b64encode(aes.encrypt(content_bytes)).decode("ascii")
-        iv_b64 = base64.b64encode(iv).decode("ascii")
-        encrypted_content = encrypted_b64 + "?iv=" + iv_b64
-        return encrypted_content
-
-    def _decrypt_content(self, content: str, pubkey_hex: str) -> str:
-        pk = PublicKey(bytes.fromhex("02" + pubkey_hex))
-        sk = self.private_key
-        shared = pk.multiply(sk.secret)
-        (encrypted_content_b64, iv_b64) = content.split("?iv=")
-        encrypted_content = base64.b64decode(encrypted_content_b64.encode("ascii"))
-        iv = base64.b64decode(iv_b64.encode("ascii"))
-        aes = AES.new(shared.format(), AES.MODE_CBC, iv)
-        decrypted_bytes = aes.decrypt(encrypted_content)
-        decrypted_bytes = unpad(decrypted_bytes, AES.block_size)
-        decrypted = decrypted_bytes.decode("utf-8")
-        return decrypted
-
     async def _on_message(self, _, message: str):
         logger.debug("Received message: " + message)
         msg = json.loads(message)
         if msg[0] == "EVENT":  # Event message
             event = msg[2]
             nwc_pubkey = event["pubkey"]
-            content = self._decrypt_content(event["content"], nwc_pubkey)
+            content = self.private_key.decrypt_message(event["content"], nwc_pubkey)
             content = json.loads(content)
             self.event_queue.append(
                 {
@@ -314,7 +278,7 @@ class NWCWallet:
         event_id = hashlib.sha256(signature_data.encode()).hexdigest()
         event["id"] = event_id
         event["pubkey"] = self.public_key_hex
-        signature = (self.private_key.sign_schnorr(bytes.fromhex(event_id))).hex()
+        signature = self.private_key.sign(bytes.fromhex(event_id))
         event["sig"] = signature
         return event
 
@@ -331,7 +295,7 @@ class NWCWallet:
             "content": json.dumps({"method": method, "params": params}),
         }
         logger.debug("Sending event: " + str(event))
-        event["content"] = self._encrypt_content(
+        event["content"] = self.private_key.encrypt_message(
             event["content"], self.provider_pub_hex
         )
         self._sign_event(event)

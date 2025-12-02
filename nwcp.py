@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import hashlib
 import json
 import random
@@ -7,13 +6,11 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any, Union
 
-from coincurve import PrivateKey, PublicKey, PublicKeyXOnly
-from Cryptodome import Random
-from Cryptodome.Cipher import AES
-from Cryptodome.Util.Padding import pad, unpad
+from coincurve import PublicKeyXOnly
 from lnbits.helpers import encrypt_internal_message
 from lnbits.settings import settings
 from loguru import logger
+from pynostr.key import PrivateKey
 from websockets.legacy.client import connect
 
 
@@ -92,7 +89,7 @@ class NWCServiceProvider:
 
         if not private_key_hex:  # Create random key
             self.private_key = PrivateKey()
-            self.private_key_hex = self.private_key.to_hex()
+            self.private_key_hex = self.private_key.hex()
         else:
             self.private_key = PrivateKey(bytes.fromhex(private_key_hex))
             self.private_key_hex = private_key_hex
@@ -101,7 +98,7 @@ class NWCServiceProvider:
         if not self.public_key:
             raise Exception("Invalid public key")
 
-        self.public_key_hex = self.public_key.format().hex()[2:]
+        self.public_key_hex = self.public_key.hex()[2:]
 
         # List of supported methods
         self.supported_methods: list[str] = []
@@ -317,7 +314,7 @@ class NWCServiceProvider:
         nwc_pubkey = event["pubkey"]
         content = event["content"]
         # Decrypt the content
-        content = self._decrypt_content(content, nwc_pubkey)
+        content = self.private_key.decrypt_message(content, nwc_pubkey)
         # Deserialize content
         content = json.loads(content)
         # Handle request
@@ -367,7 +364,9 @@ class NWCServiceProvider:
             # Reference user
             res["tags"].append(["p", nwc_pubkey])
             # Finalize response event
-            res["content"] = self._encrypt_content(res["content"], nwc_pubkey)
+            res["content"] = self.private_key.encrypt_message(
+                res["content"], nwc_pubkey
+            )
             self._sign_event(res)
 
             # Register response for this request, so we knows it is not stale
@@ -516,66 +515,6 @@ class NWCServiceProvider:
                 logger.debug("Reconnecting to NWC relay...")
                 await self._ratelimit("connecting")
 
-    def _encrypt_content(
-        self, content: str, pubkey_hex: str, iv_seed: int | None = None
-    ) -> str:
-        """
-        Encrypts the content for the given public key
-
-        Args:
-            content (str): The content to be encrypted.
-            pubkey_hex (str): The public key in hex format.
-
-        Returns:
-            str: The encrypted content.
-        """
-        pk = PublicKey(bytes.fromhex("02" + pubkey_hex))
-        sk = self.private_key
-        shared = pk.multiply(sk.secret)
-        # random iv (16B)
-        if not iv_seed:
-            iv = Random.new().read(AES.block_size)
-        else:
-            iv = hashlib.sha256(iv_seed.to_bytes(32, byteorder="big")).digest()
-            iv = iv[: AES.block_size]
-
-        aes = AES.new(shared.format(), AES.MODE_CBC, iv)
-
-        content_bytes = content.encode("utf-8")
-
-        # padding
-        content_bytes = pad(content_bytes, AES.block_size)
-
-        encrypted_b64 = base64.b64encode(aes.encrypt(content_bytes)).decode("ascii")
-        iv_b64 = base64.b64encode(iv).decode("ascii")
-        encrypted_content = encrypted_b64 + "?iv=" + iv_b64
-        return encrypted_content
-
-    def _decrypt_content(self, content: str, pubkey_hex: str) -> str:
-        """
-        Decrypts the content for the given public key
-
-        Args:
-            content (str): The encrypted content.
-            pubkey_hex (str): The public key in hex format.
-
-        Returns:
-            str: The decrypted content.
-        """
-        pk = PublicKey(bytes.fromhex("02" + pubkey_hex))
-        sk = self.private_key
-        shared = pk.multiply(sk.secret)
-        # extract iv and content
-        (encrypted_content_b64, iv_b64) = content.split("?iv=")
-        encrypted_content = base64.b64decode(encrypted_content_b64.encode("ascii"))
-        iv = base64.b64decode(iv_b64.encode("ascii"))
-        # Decrypt
-        aes = AES.new(shared.format(), AES.MODE_CBC, iv)
-        decrypted_bytes = aes.decrypt(encrypted_content)
-        decrypted_bytes = unpad(decrypted_bytes, AES.block_size)
-        decrypted = decrypted_bytes.decode("utf-8")
-        return decrypted
-
     def _verify_event(self, event: dict) -> bool:
         """
         Verify the event signature
@@ -630,7 +569,7 @@ class NWCServiceProvider:
         event["id"] = event_id
         event["pubkey"] = self.public_key_hex
 
-        signature = (self.private_key.sign_schnorr(bytes.fromhex(event_id))).hex()
+        signature = self.private_key.sign(bytes.fromhex(event_id))
         event["sig"] = signature
         return event
 
