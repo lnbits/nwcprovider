@@ -2,6 +2,12 @@
 from loguru import logger
 
 ENABLE_HARDENING = True
+WHITELISTED_NON_PRINTABLE_CHARS = {
+    "\n",  # newline
+    "\r",  # carriage return
+    "\t",  # tab
+    "\xa0",  # non-breaking space (&nbsp;)
+}
 
 
 def panic(reason: str):
@@ -17,8 +23,17 @@ def assert_printable(v: str):
         return
     if not isinstance(v, str):
         panic("not a string " + str(v))
-    if not v.isprintable():
-        panic("string contains non-printable characters")
+    for ch in v:
+        # check if printable
+        if ch.isprintable():
+            continue
+
+        # check if whitelisted non-printable
+        if ch in WHITELISTED_NON_PRINTABLE_CHARS:
+            continue
+
+        # Anything else is rejected
+        panic(f"string contains non-printable character: (0x{ord(ch):04X})")
 
 
 # Check if number is valid int and not NaN
