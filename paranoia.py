@@ -9,6 +9,7 @@ WHITELISTED_NON_PRINTABLE_CHARS = {
     "\xa0",  # non-breaking space (&nbsp;)
 }
 
+
 def panic(reason: str):
     if not ENABLE_HARDENING:
         return
