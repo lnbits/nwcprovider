@@ -30,11 +30,7 @@ window.app = Vue.createApp({
     fetchConfig() {
       this.entries = []
       LNbits.api
-        .request(
-          'GET',
-          '/nwcprovider/api/v1/config',
-          this.g.user.wallets[0].adminkey
-        )
+        .request('GET', '/nwcprovider/api/v1/config')
         .then(response => {
           this.config = response.data
           console.log('Config fetched:', this.config)
@@ -53,7 +49,7 @@ window.app = Vue.createApp({
         const response = await LNbits.api.request(
           'POST',
           '/nwcprovider/api/v1/config',
-          this.g.user.wallets[0].adminkey,
+          null,
           data
         )
         Quasar.Notify.create({
