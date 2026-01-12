@@ -2,7 +2,8 @@
   "name": "NWC Service Provider",
   "short_description": "A NWC service provider for LNbits",
   "tile": "/nwcprovider/static/image/nwcprovider.png",
-  "min_lnbits_version": "1.0.0",
+  "version": "1.1.0",
+  "min_lnbits_version": "1.4.0",
   "contributors": [
     {
       "name": "Riccardo Balbo",

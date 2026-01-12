@@ -28,7 +28,7 @@ window.app = Vue.createApp({
 
   methods: {
     fetchConfig() {
-      this.config = {}
+      this.entries = []
       LNbits.api
         .request(
           'GET',

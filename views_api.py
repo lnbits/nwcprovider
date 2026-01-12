@@ -1,11 +1,10 @@
 from http import HTTPStatus
-from typing import Dict, List, Optional
 
-import secp256k1
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from lnbits.core.models import WalletTypeInfo
 from lnbits.decorators import check_admin, require_admin_key
+from pynostr.key import PrivateKey
 
 from .crud import (
     create_nwc,
@@ -38,20 +37,18 @@ nwcprovider_api_router = APIRouter()
 
 
 # Get supported permissions
-@nwcprovider_api_router.get("/api/v1/permissions", status_code=HTTPStatus.OK)
-async def api_get_permissions() -> Dict:
+@nwcprovider_api_router.get("/api/v1/permissions")
+async def api_get_permissions() -> dict:
     return nwc_permissions
 
 
 ## Get nwc keys associated with the wallet
-@nwcprovider_api_router.get(
-    "/api/v1/nwc", status_code=HTTPStatus.OK, response_model=List[NWCGetResponse]
-)
+@nwcprovider_api_router.get("/api/v1/nwc")
 async def api_get_nwcs(
     include_expired: bool = False,
     calculate_spent_budget: bool = False,
     wallet: WalletTypeInfo = Depends(require_admin_key),
-):
+) -> list[NWCGetResponse]:
     wallet_id = wallet.wallet.id
 
     # hardening #
@@ -74,9 +71,7 @@ async def api_get_nwcs(
 
 
 # Get a nwc key
-@nwcprovider_api_router.get(
-    "/api/v1/nwc/{pubkey}", status_code=HTTPStatus.OK, response_model=NWCGetResponse
-)
+@nwcprovider_api_router.get("/api/v1/nwc/{pubkey}")
 async def api_get_nwc(
     pubkey: str,
     include_expired: bool = False,
@@ -93,31 +88,31 @@ async def api_get_nwc(
     nwc = await get_nwc(
         GetNWC(pubkey=pubkey, wallet=wallet_id, include_expired=include_expired)
     )
+
     if not nwc:
-        raise Exception("Pubkey has no associated wallet")
+        raise ValueError("Pubkey has no associated wallet")
     res = NWCGetResponse(
         data=nwc, budgets=await get_budgets_nwc(GetBudgetsNWC(pubkey=pubkey))
     )
+
     return res
 
 
 # Get pairing url for given secret
-@nwcprovider_api_router.get(
-    "/api/v1/pairing/{secret}", status_code=HTTPStatus.OK, response_model=str
-)
+@nwcprovider_api_router.get("/api/v1/pairing/{secret}")
 async def api_get_pairing_url(req: Request, secret: str) -> str:
 
     # hardening #
     assert_sane_string(secret)
     # ## #
 
-    pprivkey: Optional[str] = await get_config_nwc("provider_key")
+    pprivkey: str | None = await get_config_nwc("provider_key")
     if not pprivkey:
         raise Exception("Extension is not configured")
     relay = await get_config_nwc("relay")
     if not relay:
         raise Exception("Extension is not configured")
-    relay_alias: Optional[str] = await get_config_nwc("relay_alias")
+    relay_alias: str | None = await get_config_nwc("relay_alias")
     if relay_alias:
         relay = relay_alias
     else:
@@ -130,11 +125,11 @@ async def api_get_pairing_url(req: Request, secret: str) -> str:
                 scheme = "wss"
             netloc += "/nostrclient/api/v1/relay"
             relay = f"{scheme}://{netloc}"
-    psk = secp256k1.PrivateKey(bytes.fromhex(pprivkey))
-    ppk = psk.pubkey
+    psk = PrivateKey.from_hex(pprivkey)
+    ppk = psk.public_key
     if not ppk:
         raise Exception("Error generating pubkey")
-    ppubkey = ppk.serialize().hex()[2:]
+    ppubkey = ppk.hex()
     url = "nostr+walletconnect://"
     url += ppubkey
     url += "?relay=" + relay
@@ -147,13 +142,12 @@ async def api_get_pairing_url(req: Request, secret: str) -> str:
 @nwcprovider_api_router.put(
     "/api/v1/nwc/{pubkey}",
     status_code=HTTPStatus.CREATED,
-    response_model=NWCGetResponse,
 )
 async def api_register_nwc(
     pubkey: str,
     data: NWCRegistrationRequest,
     wallet: WalletTypeInfo = Depends(require_admin_key),
-):
+) -> NWCGetResponse:
     wallet_id = wallet.wallet.id
 
     # hardening #
@@ -177,7 +171,7 @@ async def api_register_nwc(
 
 
 # Delete a nwc key
-@nwcprovider_api_router.delete("/api/v1/nwc/{pubkey}", status_code=HTTPStatus.OK)
+@nwcprovider_api_router.delete("/api/v1/nwc/{pubkey}")
 async def api_delete_nwc(
     pubkey: str, wallet: WalletTypeInfo = Depends(require_admin_key)
 ):
@@ -193,9 +187,7 @@ async def api_delete_nwc(
 
 
 # Get config
-@nwcprovider_api_router.get(
-    "/api/v1/config", status_code=HTTPStatus.OK, dependencies=[Depends(check_admin)]
-)
+@nwcprovider_api_router.get("/api/v1/config", dependencies=[Depends(check_admin)])
 async def api_get_all_config_nwc():
     config = await get_all_config_nwc()
     return config
@@ -204,7 +196,6 @@ async def api_get_all_config_nwc():
 # Get config
 @nwcprovider_api_router.get(
     "/api/v1/config/{key}",
-    status_code=HTTPStatus.OK,
     dependencies=[Depends(check_admin)],
 )
 async def api_get_config_nwc(key: str):
@@ -215,9 +206,7 @@ async def api_get_config_nwc(key: str):
 
 
 # Set config
-@nwcprovider_api_router.post(
-    "/api/v1/config", status_code=HTTPStatus.OK, dependencies=[Depends(check_admin)]
-)
+@nwcprovider_api_router.post("/api/v1/config", dependencies=[Depends(check_admin)])
 async def api_set_config_nwc(req: Request):
     data = await req.json()
 

@@ -1,18 +1,11 @@
 import json
-import os
-import sys
-
-from loguru import logger
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-####
-
 import random
 import string
 
 import pytest
+from loguru import logger
 
-from nwcp import NWCServiceProvider
+from ...nwcp import NWCServiceProvider
 
 
 @pytest.fixture
@@ -40,25 +33,22 @@ def test_supported_methods(nwc_service_provider):
 
 def test_encrytdecrypt(nwc_service_provider, nwc_service_provider2):
     content = "Hello World"
-    expected_enc = "qVurNVISSl/9CfREIhk5Lg==?iv=QpCo5dI9gUcoLsSMLA7o7Q=="
-    enc_a = nwc_service_provider._encrypt_content(
-        content, nwc_service_provider2.public_key_hex, 21
+    enc_a = nwc_service_provider.private_key.encrypt_message(
+        content, nwc_service_provider2.public_key_hex
     )
-    enc_b = nwc_service_provider2._encrypt_content(
-        content, nwc_service_provider.public_key_hex, 21
+    enc_b = nwc_service_provider2.private_key.encrypt_message(
+        content, nwc_service_provider.public_key_hex
     )
 
-    dec_a = nwc_service_provider2._decrypt_content(
+    dec_a = nwc_service_provider2.private_key.decrypt_message(
         enc_a, nwc_service_provider.public_key_hex
     )
-    dec_b = nwc_service_provider._decrypt_content(
+    dec_b = nwc_service_provider.private_key.decrypt_message(
         enc_b, nwc_service_provider2.public_key_hex
     )
 
     assert dec_a == content
     assert dec_b == content
-    assert enc_a == expected_enc
-    assert enc_b == expected_enc
 
 
 def test_signverify(nwc_service_provider, nwc_service_provider2):
@@ -89,8 +79,8 @@ async def test_handle(nwc_service_provider, nwc_service_provider2):
     content = nwc_service_provider._json_dumps(
         {"method": "pay_invoice", "params": {"invoice": "abc"}}
     )
-    content = nwc_service_provider._encrypt_content(
-        content, nwc_service_provider2.public_key_hex, 21
+    content = nwc_service_provider.private_key.encrypt_message(
+        content, nwc_service_provider2.public_key_hex
     )
     event = {
         "kind": 23194,
@@ -115,7 +105,7 @@ async def test_handle(nwc_service_provider, nwc_service_provider2):
     assert len(sent_events) == 1
     for revent in sent_events:
         assert nwc_service_provider2._verify_event(revent)
-        content = nwc_service_provider2._decrypt_content(
+        content = nwc_service_provider2.private_key.decrypt_message(
             revent["content"], nwc_service_provider.public_key_hex
         )
         logger.debug(event)

@@ -99,12 +99,51 @@
   <div class="col-12 col-md-4 col-lg-5 q-gutter-y-md">
     <q-card>
       <q-card-section>
-        <h6 class="text-subtitle1 q-my-none">NWC Service provider</h6>
+        <h6 class="text-subtitle1 q-my-none">NWC Service Provider</h6>
         <p>
-          Nostr Wallet Connect (NWC) is an open protocol to connect lightning
-          wallets to apps
+          Nostr Wallet Connect (NWC) is an open protocol to connect Lightning
+          wallets to apps. This extension allows you to use your LNbits wallet
+          with
+          <a
+            href="https://github.com/getAlby/awesome-nwc#nwc-wallets"
+            title="NWC wallets"
+            target="_blank"
+            >any NWC compatible app</a
+          >.
         </p>
+        <p>
+          Before you can use this extension, you need to configure it.
+          <a
+            href="https://github.com/lnbits/nwcprovider#configuration"
+            title="NWC Service Provider User Guide"
+            target="_blank"
+            >Read the User Guide</a
+          >
+          to get started.
+        </p>
+
+        <h6 class="text-subtitle2 q-my-none">Connecting a NWC App</h6>
+        <p>
+          Once you have configured the extension, you can connect a NWC
+          compatible app by following these steps:
+        </p>
+        <ol class="q-pl-md q-mt-sm">
+          <li class="q-mb-sm">
+            In the <strong>NWC Service Provider</strong> extension, select the
+            wallet you want to connect.
+          </li>
+          <li class="q-mb-sm">Click the "+" button to add a new connection.</li>
+          <li class="q-mb-sm">
+            Enter a description, expiry date (optional), permissions, and
+            limits.
+          </li>
+          <li class="q-mb-sm">Click "Connect" to create the connection.</li>
+          <li class="q-mb-sm">
+            Use the generated pairing URL or QR code to connect your chosen app.
+          </li>
+        </ol>
       </q-card-section>
+
       <q-card-section class="q-pa-none">
         <q-separator></q-separator>
         <q-list>

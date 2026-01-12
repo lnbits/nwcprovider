@@ -2,7 +2,7 @@
 
 import time
 from sqlite3 import Row
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -16,14 +16,14 @@ class NWCKey(BaseModel):
     created_at: int
     last_used: int
 
-    def get_permissions(self) -> List[str]:
+    def get_permissions(self) -> list[str]:
         try:
             return self.permissions.split(" ")
         except Exception:
             return []
 
     @classmethod
-    def from_row(cls, row: Dict[str, Any]) -> "NWCKey":
+    def from_row(cls, row: dict[str, Any]) -> "NWCKey":
         return cls(**row)
 
 
@@ -53,7 +53,7 @@ class NWCBudget(BaseModel):
 
 
 class NWCNewBudget(BaseModel):
-    pubkey: Optional[str]
+    pubkey: str | None
     budget_msats: int
     refresh_window: int
     created_at: int
@@ -65,30 +65,30 @@ class CreateNWCKey(BaseModel):
     wallet: str
     description: str
     expires_at: int
-    permissions: List[str]
-    budgets: Optional[List[NWCNewBudget]] = None
+    permissions: list[str]
+    budgets: list[NWCNewBudget] | None = None
 
 
 class DeleteNWC(BaseModel):
     pubkey: str
-    wallet: Optional[str] = None
+    wallet: str | None = None
 
 
 class GetWalletNWC(BaseModel):
-    wallet: Optional[str] = None
-    include_expired: Optional[bool] = False
+    wallet: str | None = None
+    include_expired: bool | None = False
 
 
 class GetNWC(BaseModel):
     pubkey: str
-    wallet: Optional[str] = None
-    include_expired: Optional[bool] = False
-    refresh_last_used: Optional[bool] = False
+    wallet: str | None = None
+    include_expired: bool | None = False
+    refresh_last_used: bool | None = False
 
 
 class GetBudgetsNWC(BaseModel):
     pubkey: str
-    calculate_spent: Optional[bool] = False
+    calculate_spent: bool | None = False
 
 
 class TrackedSpendNWC(BaseModel):
@@ -98,12 +98,17 @@ class TrackedSpendNWC(BaseModel):
 
 # API models
 class NWCRegistrationRequest(BaseModel):
-    permissions: List[str]
+    permissions: list[str]
     description: str
     expires_at: int
-    budgets: List[NWCNewBudget]
+    budgets: list[NWCNewBudget]
 
 
 class NWCGetResponse(BaseModel):
     data: NWCKey
-    budgets: List[NWCBudget]
+    budgets: list[NWCBudget]
+
+
+class NWCConfig(BaseModel):
+    key: str
+    value: str
