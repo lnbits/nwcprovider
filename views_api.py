@@ -1,9 +1,11 @@
 from http import HTTPStatus
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from lnbits.core.models import WalletTypeInfo
 from lnbits.decorators import check_admin, require_admin_key
+from loguru import logger
 from pynostr.key import PrivateKey
 
 from .crud import (
@@ -100,10 +102,14 @@ async def api_get_nwc(
 
 # Get pairing url for given secret
 @nwcprovider_api_router.get("/api/v1/pairing/{secret}")
-async def api_get_pairing_url(req: Request, secret: str) -> str:
+async def api_get_pairing_url(
+    req: Request, secret: str, lud16: str | None = None
+) -> str:
 
     # hardening #
     assert_sane_string(secret)
+    if lud16:
+        assert_sane_string(lud16)
     # ## #
 
     pprivkey: str | None = await get_config_nwc("provider_key")
@@ -132,9 +138,10 @@ async def api_get_pairing_url(req: Request, secret: str) -> str:
     ppubkey = ppk.hex()
     url = "nostr+walletconnect://"
     url += ppubkey
-    url += "?relay=" + relay
+    url += "?relay=" + quote(relay, safe="")
     url += "&secret=" + secret
-    # lud16=?
+    if lud16:
+        url += "&lud16=" + quote(lud16, safe="")
     return url
 
 
@@ -163,6 +170,7 @@ async def api_register_nwc(
             expires_at=data.expires_at,
             permissions=data.permissions,
             budgets=data.budgets,
+            lud16=data.lud16,
         )
     )
     budgets = await get_budgets_nwc(GetBudgetsNWC(pubkey=pubkey))
@@ -219,3 +227,44 @@ async def api_set_config_nwc(req: Request):
     for key, value in data.items():
         await set_config_nwc(key, value)
     return await api_get_all_config_nwc()
+
+
+# Get available lightning addresses from lnurlp extension
+@nwcprovider_api_router.get("/api/v1/lnaddresses")
+async def api_get_lightning_addresses(
+    req: Request,
+    wallet: WalletTypeInfo = Depends(require_admin_key),
+) -> list[dict]:
+    """
+    Fetch available lightning addresses from lnurlp extension for this wallet.
+    Returns list of {address, username, description} for dropdown selection.
+    """
+    wallet_id = wallet.wallet.id
+
+    # hardening #
+    assert_valid_wallet_id(wallet_id)
+    # ## #
+
+    try:
+        # Import lnurlp crud - may not be installed
+        from lnbits.extensions.lnurlp.crud import get_pay_links
+
+        pay_links = await get_pay_links([wallet_id])
+        domain = req.url.netloc
+
+        addresses = []
+        for link in pay_links:
+            if link.username:
+                addresses.append({
+                    "address": f"{link.username}@{domain}",
+                    "username": link.username,
+                    "description": link.description or "",
+                })
+
+        return addresses
+    except ImportError:
+        logger.warning("lnurlp extension not available for lightning address lookup")
+        return []
+    except Exception as e:
+        logger.error(f"Error fetching lightning addresses: {e}")
+        return []

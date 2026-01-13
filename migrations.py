@@ -119,3 +119,12 @@ async def m006_default_config3(db):
         """,
         {"value": "0"},
     )
+
+
+async def m007_add_lud16(db):
+    """
+    Add lud16 column to keys table for lightning address support
+    """
+    await db.execute(
+        "ALTER TABLE nwcprovider.keys ADD COLUMN lud16 TEXT"
+    )
