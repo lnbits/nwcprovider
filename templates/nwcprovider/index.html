@@ -346,6 +346,64 @@
           dense
           label="Description"
         ></q-input>
+        <!-- Lightning Address: Simple input with optional dropdown -->
+        <q-input
+          v-model="connectDialog.data.lud16"
+          filled
+          dense
+          label="Lightning Address (optional)"
+          hint="e.g. user@domain.com"
+          placeholder="Enter or select lightning address"
+        >
+          <template v-slot:append>
+            <q-btn
+              v-if="connectDialog.data.lud16"
+              flat
+              dense
+              round
+              icon="close"
+              size="sm"
+              @click="connectDialog.data.lud16 = ''"
+            >
+              <q-tooltip>Clear</q-tooltip>
+            </q-btn>
+            <q-btn
+              flat
+              dense
+              round
+              icon="expand_more"
+              size="sm"
+              :loading="lud16Loading"
+            >
+              <q-tooltip>Select from LNURLp</q-tooltip>
+              <q-menu>
+                <q-list style="min-width: 280px">
+                  <q-item-label header
+                    >Select Lightning Address from Paylinks extension</q-item-label
+                  >
+                  <q-item v-if="lud16OptionsAll.length === 0" dense>
+                    <q-item-section class="text-grey">
+                      No addresses found. Create one in Paylinks extension.
+                    </q-item-section>
+                  </q-item>
+                  <q-item
+                    v-for="opt in lud16OptionsAll"
+                    :key="opt.value"
+                    clickable
+                    v-ripple
+                    v-close-popup
+                    @click="connectDialog.data.lud16 = opt.value"
+                  >
+                    <q-item-section>
+                      <q-item-label>${ opt.label }</q-item-label>
+                      <q-item-label caption>${ opt.value }</q-item-label>
+                    </q-item-section>
+                  </q-item>
+                </q-list>
+              </q-menu>
+            </q-btn>
+          </template>
+        </q-input>
         <div class="row">
           <q-input
             :disable="connectDialog.data.neverExpires"
