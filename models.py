@@ -15,6 +15,7 @@ class NWCKey(BaseModel):
     permissions: str
     created_at: int
     last_used: int
+    lud16: str | None = None
 
     def get_permissions(self) -> list[str]:
         try:
@@ -67,6 +68,7 @@ class CreateNWCKey(BaseModel):
     expires_at: int
     permissions: list[str]
     budgets: list[NWCNewBudget] | None = None
+    lud16: str | None = None
 
 
 class DeleteNWC(BaseModel):
@@ -102,6 +104,7 @@ class NWCRegistrationRequest(BaseModel):
     description: str
     expires_at: int
     budgets: list[NWCNewBudget]
+    lud16: str | None = None
 
 
 class NWCGetResponse(BaseModel):

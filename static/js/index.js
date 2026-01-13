@@ -36,7 +36,7 @@ window.app = Vue.createApp({
           }
         ],
         pagination: {
-          rowsPerPage: 10
+          rowsPerPage: 0
         }
       },
       connectDialog: {
@@ -58,7 +58,9 @@ window.app = Vue.createApp({
       connectionInfoDialog: {
         show: false,
         data: {}
-      }
+      },
+      lud16OptionsAll: [],
+      lud16Loading: false
     }
   },
 
@@ -119,7 +121,8 @@ window.app = Vue.createApp({
         expires_at: Date.now() + 1000 * 60 * 60 * 24 * 7,
         neverExpires: true,
         permissions: [],
-        budgets: []
+        budgets: [],
+        lud16: ''
       }
       for (const permission of this.nodePermissions) {
         this.connectDialog.data.permissions.push({
@@ -127,6 +130,36 @@ window.app = Vue.createApp({
           name: permission.name,
           value: permission.value
         })
+      }
+      this.lud16OptionsAll = []
+      this.loadLightningAddresses()
+    },
+    async loadLightningAddresses() {
+      const wallet = this.getWallet()
+      if (!wallet) {
+        this.lud16OptionsAll = []
+        return
+      }
+      this.lud16Loading = true
+      try {
+        const response = await LNbits.api.request(
+          'GET',
+          '/nwcprovider/api/v1/lnaddresses',
+          wallet.adminkey
+        )
+        if (response.data && response.data.length > 0) {
+          this.lud16OptionsAll = response.data.map(addr => ({
+            label: addr.description || addr.username,
+            value: addr.address
+          }))
+        } else {
+          this.lud16OptionsAll = []
+        }
+      } catch (error) {
+        console.warn('Could not load lightning addresses:', error)
+        this.lud16OptionsAll = []
+      } finally {
+        this.lud16Loading = false
       }
     },
     deleteBudget(index) {
@@ -295,18 +328,23 @@ window.app = Vue.createApp({
     closePairingDialog() {
       this.pairingDialog.show = false
     },
-    async showPairingDialog(secret) {
-      let response = await LNbits.api.request(
-        'GET',
-        '/nwcprovider/api/v1/pairing/{SECRET}'
-      )
-      response = response.data
-      response = response.replace('{SECRET}', secret)
-      this.pairingDialog.data.pairingUrl = response
+    getLud16Value() {
+      const lud16 = this.connectDialog.data.lud16
+      return lud16 && lud16.trim() ? lud16.trim() : null
+    },
+    async showPairingDialog(secret, lud16) {
+      let url = `/nwcprovider/api/v1/pairing/${secret}`
+      if (lud16) {
+        url += `?lud16=${encodeURIComponent(lud16)}`
+      }
+      let response = await LNbits.api.request('GET', url)
+      this.pairingDialog.data.pairingUrl = response.data
       this.pairingDialog.show = true
     },
     async confirmConnectDialog() {
       const keyPair = await this.generateKeyPair()
+      // Save lud16 before dialog closes (closeConnectDialog resets it)
+      const lud16 = this.getLud16Value()
       // timestamp
       let expires_at = 0
       if (!this.connectDialog.data.neverExpires) {
@@ -317,7 +355,8 @@ window.app = Vue.createApp({
         permissions: [],
         description: this.connectDialog.data.description,
         expires_at: expires_at,
-        budgets: []
+        budgets: [],
+        lud16: lud16
       }
       for (const permission of this.connectDialog.data.permissions) {
         if (permission.value) data.permissions.push(permission.key)
@@ -366,7 +405,7 @@ window.app = Vue.createApp({
           LNbits.utils.notifyApiError('Error creating nwc pairing')
           return
         }
-        this.showPairingDialog(keyPair.privKey)
+        this.showPairingDialog(keyPair.privKey, lud16)
       } catch (error) {
         LNbits.utils.notifyApiError(error)
       }
@@ -375,7 +414,10 @@ window.app = Vue.createApp({
   },
 
   created: function () {
-    this.loadNwcs()
+    // Auto-select first wallet to show connections by default
+    if (this.g.user.wallets && this.g.user.wallets.length > 0) {
+      this.selectedWallet = this.g.user.wallets[0].id
+    }
   },
   watch: {
     selectedWallet(newValue, oldValue) {
