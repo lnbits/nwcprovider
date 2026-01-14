@@ -14,6 +14,12 @@ window.app = Vue.createApp({
             label: 'Description',
             field: 'description'
           },
+          {
+            name: 'lud16',
+            align: 'left',
+            label: 'Lightning Address',
+            field: 'lud16'
+          },
           {name: 'status', align: 'left', label: 'Status', field: 'status'},
           {
             name: 'last_used',
@@ -282,6 +288,7 @@ window.app = Vue.createApp({
         )
         const nwcTableEntry = {
           description: nwc.data.description,
+          lud16: nwc.data.lud16 || '-',
           created_at: t,
           expires_at: e,
           last_used: l,
