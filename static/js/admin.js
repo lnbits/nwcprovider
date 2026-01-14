@@ -1,7 +1,6 @@
 window.app = Vue.createApp({
   el: '#vue',
   mixins: [windowMixin],
-  delimiters: ['${', '}'],
   data: function () {
     return {
       config: {},

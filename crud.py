@@ -53,6 +53,7 @@ async def create_nwc(data: CreateNWCKey) -> NWCKey:
         permissions=" ".join(data.permissions),
         created_at=int(time.time()),
         last_used=int(time.time()),
+        lud16=data.lud16,
     )
     await db.insert("nwcprovider.keys", nwckey_entry)
     if data.budgets:

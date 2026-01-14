@@ -55,16 +55,14 @@
         >
           <nwcprovider v-slot:header="props">
             <q-tr :props="props">
-              <q-th v-for="col in props.cols" :key="col.name" :props="props">
-                ${ col.label }
-              </q-th>
+              <q-th v-for="col in props.cols" :key="col.name" :props="props" v-text="col.label"></q-th>
             </q-tr>
           </nwcprovider>
 
           <template v-slot:body="props">
             <q-tr :props="props">
               <q-td v-for="col in props.cols" :key="col.name" :props="props">
-                <div>${ col.value }</div>
+                <div v-text="col.value"></div>
               </q-td>
 
               <q-td>
@@ -170,34 +168,24 @@
         <q-list>
           <q-item>
             <q-item-section>Description</q-item-section>
-            <q-item-section side
-              >${connectionInfoDialog.data.description}</q-item-section
-            >
+            <q-item-section side v-text="connectionInfoDialog.data.description"></q-item-section>
           </q-item>
           <q-item>
             <q-item-section>Last used</q-item-section>
-            <q-item-section side
-              >${connectionInfoDialog.data.last_used}</q-item-section
-            >
+            <q-item-section side v-text="connectionInfoDialog.data.last_used"></q-item-section>
           </q-item>
           <q-item>
             <q-item-section>Expires</q-item-section>
-            <q-item-section side
-              >${connectionInfoDialog.data.expires_at}</q-item-section
-            >
+            <q-item-section side v-text="connectionInfoDialog.data.expires_at"></q-item-section>
           </q-item>
           <q-item>
             <q-item-section>Created</q-item-section>
-            <q-item-section side
-              >${connectionInfoDialog.data.created_at}</q-item-section
-            >
+            <q-item-section side v-text="connectionInfoDialog.data.created_at"></q-item-section>
           </q-item>
 
           <q-item>
             <q-item-section>Permissions</q-item-section>
-            <q-item-section side>
-              ${connectionInfoDialog.data.permissions}
-            </q-item-section>
+            <q-item-section side v-text="connectionInfoDialog.data.permissions"></q-item-section>
           </q-item>
           <q-item>
             <q-item-section
@@ -222,10 +210,8 @@
                     v-else
                     v-for="budget in connectionInfoDialog.data.budgets"
                   >
-                    <q-td class="text-center"
-                      >${budget.used_budget_sats} / ${budget.budget_sats}</q-td
-                    >
-                    <q-td class="text-center">${budget.refresh_window}</q-td>
+                    <q-td class="text-center" v-text="budget.used_budget_sats + ' / ' + budget.budget_sats"></q-td>
+                    <q-td class="text-center" v-text="budget.refresh_window"></q-td>
                   </q-tr>
                 </tbody>
               </q-markup-table>
@@ -346,6 +332,70 @@
           dense
           label="Description"
         ></q-input>
+        <!-- Lightning Address: Simple input with optional dropdown -->
+        <q-input
+          v-model="connectDialog.data.lud16"
+          filled
+          dense
+          label="Lightning Address (optional)"
+          hint="e.g. user@domain.com"
+          placeholder="Enter or select lightning address"
+        >
+          <template v-slot:append>
+            <q-btn
+              v-if="connectDialog.data.lud16"
+              flat
+              dense
+              round
+              icon="close"
+              size="sm"
+              @click="connectDialog.data.lud16 = ''"
+            >
+              <q-tooltip>Clear</q-tooltip>
+            </q-btn>
+            <q-btn
+              flat
+              dense
+              round
+              icon="expand_more"
+              size="sm"
+              :loading="lud16Loading"
+            >
+              <q-tooltip>Select address (lud16) from Paylinks</q-tooltip>
+              <q-menu>
+                <q-list style="min-width: 280px">
+                  <q-item-label header
+                    >Select Lightning Address from Paylinks extension</q-item-label
+                  >
+                  <q-item v-if="lud16OptionsAll.length === 0">
+                    <q-item-section>
+                      <div class="text-center q-py-md">
+                        <q-icon name="inbox" size="32px" color="grey-5" class="q-mb-sm"></q-icon>
+                        <div class="text-grey-7 text-body2">No addresses available</div>
+                        <div class="text-grey-5 text-caption q-mt-xs">
+                          Create one in the Paylinks extension<br>or enter an address manually above
+                        </div>
+                      </div>
+                    </q-item-section>
+                  </q-item>
+                  <q-item
+                    v-for="opt in lud16OptionsAll"
+                    :key="opt.value"
+                    clickable
+                    v-ripple
+                    v-close-popup
+                    @click="connectDialog.data.lud16 = opt.value"
+                  >
+                    <q-item-section>
+                      <q-item-label v-text="opt.label"></q-item-label>
+                      <q-item-label caption v-text="opt.value"></q-item-label>
+                    </q-item-section>
+                  </q-item>
+                </q-list>
+              </q-menu>
+            </q-btn>
+          </template>
+        </q-input>
         <div class="row">
           <q-input
             :disable="connectDialog.data.neverExpires"

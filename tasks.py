@@ -344,8 +344,9 @@ async def _on_lookup_invoice(
     res: dict = {
         "type": "outgoing" if payment.is_out else "incoming",
         "invoice": payment.bolt11,
+        # Priority: LNURL comment > memo > invoice description
         "description": (
-            invoice_data.description if invoice_data.description else payment.memo
+            payment.extra.get("comment") or payment.memo or invoice_data.description
         ),
         "preimage": preimage if is_settled or payment.is_in else None,
         "payment_hash": payment.payment_hash,
@@ -413,11 +414,13 @@ async def _on_list_transactions(
         invoice_data = bolt11_decode(p.bolt11)
         is_settled = not p.pending
         timestamp = int(p.time.timestamp()) or invoice_data.date
+        # Priority: LNURL comment > memo > invoice description
+        description = p.extra.get("comment") or p.memo or invoice_data.description
         transactions.append(
             {
                 "type": "outgoing" if p.is_out else "incoming",
                 "invoice": p.bolt11,
-                "description": invoice_data.description,
+                "description": description,
                 "description_hash": invoice_data.description_hash,
                 "preimage": p.preimage if is_settled or p.is_in else None,
                 "payment_hash": p.payment_hash,
