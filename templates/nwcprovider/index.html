@@ -367,9 +367,15 @@
                   <q-item-label header
                     >Select Lightning Address from Paylinks extension</q-item-label
                   >
-                  <q-item v-if="lud16OptionsAll.length === 0" dense>
-                    <q-item-section class="text-grey">
-                      No addresses found. Create one in Paylinks extension.
+                  <q-item v-if="lud16OptionsAll.length === 0">
+                    <q-item-section>
+                      <div class="text-center q-py-md">
+                        <q-icon name="inbox" size="32px" color="grey-5" class="q-mb-sm"></q-icon>
+                        <div class="text-grey-7 text-body2">No addresses available</div>
+                        <div class="text-grey-5 text-caption q-mt-xs">
+                          Create one in the Paylinks extension<br>or enter an address manually above
+                        </div>
+                      </div>
                     </q-item-section>
                   </q-item>
                   <q-item
