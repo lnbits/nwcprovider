@@ -255,11 +255,13 @@ async def api_get_lightning_addresses(
         addresses = []
         for link in pay_links:
             if link.username:
-                addresses.append({
-                    "address": f"{link.username}@{domain}",
-                    "username": link.username,
-                    "description": link.description or "",
-                })
+                addresses.append(
+                    {
+                        "address": f"{link.username}@{domain}",
+                        "username": link.username,
+                        "description": link.description or "",
+                    }
+                )
 
         return addresses
     except ImportError:
