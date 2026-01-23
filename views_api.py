@@ -247,7 +247,7 @@ async def api_get_lightning_addresses(
 
     try:
         # Import lnurlp crud - may not be installed
-        from lnbits.extensions.lnurlp.crud import get_pay_links
+        from lnbits.extensions.lnurlp.crud import get_pay_links  # type: ignore
 
         pay_links = await get_pay_links([wallet_id])
         domain = req.url.netloc
