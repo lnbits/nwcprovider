@@ -35,6 +35,11 @@ from .paranoia import (
 )
 from .permission import nwc_permissions
 
+try:
+    from lnbits.extensions.lnurlp.crud import get_pay_links
+except ImportError:
+    get_pay_links = None
+
 nwcprovider_api_router = APIRouter()
 
 
@@ -245,10 +250,11 @@ async def api_get_lightning_addresses(
     assert_valid_wallet_id(wallet_id)
     # ## #
 
-    try:
-        # Import lnurlp crud - may not be installed
-        from lnbits.extensions.lnurlp.crud import get_pay_links  # type: ignore
+    if get_pay_links is None:
+        logger.warning("lnurlp extension not available for lightning address lookup")
+        return []
 
+    try:
         pay_links = await get_pay_links([wallet_id])
         domain = req.url.netloc
 
@@ -264,9 +270,6 @@ async def api_get_lightning_addresses(
                 )
 
         return addresses
-    except ImportError:
-        logger.warning("lnurlp extension not available for lightning address lookup")
-        return []
     except Exception as e:
         logger.error(f"Error fetching lightning addresses: {e}")
         return []
