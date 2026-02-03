@@ -3,11 +3,18 @@ window.app = Vue.createApp({
   mixins: [windowMixin],
   data: function () {
     return {
-      selectedWallet: null,
+      selectedWallet: 'all',
+      dialogWallet: null,
       nodePermissions: [],
       nwcEntries: [],
       nwcsTable: {
         columns: [
+          {
+            name: 'wallet_name',
+            align: 'left',
+            label: 'Wallet',
+            field: 'wallet_name'
+          },
           {
             name: 'description',
             align: 'left',
@@ -69,18 +76,52 @@ window.app = Vue.createApp({
     }
   },
 
+  computed: {
+    walletOptions() {
+      // Count connections per wallet
+      const counts = {}
+      for (const entry of this.nwcEntries) {
+        if (entry.wallet_id) {
+          counts[entry.wallet_id] = (counts[entry.wallet_id] || 0) + 1
+        }
+      }
+
+      const options = [
+        {label: 'All Wallets', value: 'all', count: null}
+      ]
+      for (const wallet of this.g.user.wallets) {
+        options.push({
+          label: wallet.name,
+          value: wallet.id,
+          count: counts[wallet.id] || 0
+        })
+      }
+      return options
+    },
+    visibleColumns() {
+      if (this.selectedWallet === 'all') {
+        return this.nwcsTable.columns.map(c => c.name)
+      }
+      return this.nwcsTable.columns.filter(c => c.name !== 'wallet_name').map(c => c.name)
+    }
+  },
   methods: {
     showConnectDialog() {
-      const wallet = this.getWallet()
-      if (!wallet) {
-        Quasar.Notify.create({
-          type: 'negative',
-          message: 'Please select a wallet first'
-        })
-        return
+      // When "All Wallets" is selected, default dialog wallet to first wallet
+      if (this.selectedWallet === 'all') {
+        if (this.g.user.wallets && this.g.user.wallets.length > 0) {
+          this.dialogWallet = this.g.user.wallets[0].id
+        } else {
+          Quasar.Notify.create({
+            type: 'negative',
+            message: 'No wallets available'
+          })
+          return
+        }
       } else {
-        this.connectDialog.show = true
+        this.dialogWallet = this.selectedWallet
       }
+      this.connectDialog.show = true
     },
     openConnectionInfoDialog(data) {
       this.connectionInfoDialog.data = data
@@ -95,6 +136,10 @@ window.app = Vue.createApp({
     },
     go(url) {
       window.open(url, '_blank')
+    },
+    switchToWallet(walletId) {
+      // Switch to the selected wallet in the dropdown
+      this.selectedWallet = walletId
     },
     async copyPairingUrl() {
       const url = this.pairingDialog.data.pairingUrl
@@ -139,8 +184,16 @@ window.app = Vue.createApp({
       this.lud16OptionsAll = []
       this.loadLightningAddresses()
     },
+    getDialogWallet() {
+      for (let i = 0; i < this.g.user.wallets.length; i++) {
+        if (this.g.user.wallets[i].id === this.dialogWallet) {
+          return this.g.user.wallets[i]
+        }
+      }
+      return null
+    },
     async loadLightningAddresses() {
-      const wallet = this.getWallet()
+      const wallet = this.getDialogWallet()
       if (!wallet) {
         this.lud16OptionsAll = []
         return
@@ -206,7 +259,7 @@ window.app = Vue.createApp({
       }
       return out
     },
-    deleteNWC: async function (pubkey) {
+    deleteNWC: async function (row) {
       Quasar.Dialog.create({
         title: 'Confirm Deletion',
         message: 'Are you sure you want to delete this connection?',
@@ -215,11 +268,26 @@ window.app = Vue.createApp({
       })
         .onOk(async () => {
           try {
-            const wallet = this.getWallet()
+            // When in "All Wallets" view, use the wallet_id from the row
+            let adminkey
+            if (this.selectedWallet === 'all') {
+              const wallet = this.g.user.wallets.find(w => w.id === row.wallet_id)
+              if (!wallet) {
+                Quasar.Notify.create({
+                  type: 'negative',
+                  message: 'Could not find wallet for this connection'
+                })
+                return
+              }
+              adminkey = wallet.adminkey
+            } else {
+              const wallet = this.getWallet()
+              adminkey = wallet.adminkey
+            }
             const response = await LNbits.api.request(
               'DELETE',
-              `/nwcprovider/api/v1/nwc/${pubkey}`,
-              wallet.adminkey
+              `/nwcprovider/api/v1/nwc/${row.pubkey}`,
+              adminkey
             )
             this.loadNwcs()
             Quasar.Notify.create({
@@ -235,16 +303,34 @@ window.app = Vue.createApp({
         })
     },
     loadNwcs: async function () {
-      const wallet = this.getWallet()
-      if (!wallet) {
-        this.nwcs = []
-        return
+      // Get any wallet's adminkey for API calls (needed for "all" view)
+      let adminkey
+      if (this.selectedWallet === 'all') {
+        if (this.g.user.wallets && this.g.user.wallets.length > 0) {
+          adminkey = this.g.user.wallets[0].adminkey
+        } else {
+          this.nwcs = []
+          this.nwcEntries = []
+          return
+        }
+      } else {
+        const wallet = this.getWallet()
+        if (!wallet) {
+          this.nwcs = []
+          this.nwcEntries = []
+          return
+        }
+        adminkey = wallet.adminkey
       }
+
       try {
+        const endpoint = this.selectedWallet === 'all'
+          ? '/nwcprovider/api/v1/nwc/all?include_expired=true&calculate_spent_budget=true'
+          : '/nwcprovider/api/v1/nwc?include_expired=true&calculate_spent_budget=true'
         const response = await LNbits.api.request(
           'GET',
-          '/nwcprovider/api/v1/nwc?include_expired=true&calculate_spent_budget=true',
-          wallet.adminkey
+          endpoint,
+          adminkey
         )
         this.nwcs = response.data
       } catch (error) {
@@ -254,7 +340,7 @@ window.app = Vue.createApp({
         const response = await LNbits.api.request(
           'GET',
           '/nwcprovider/api/v1/permissions',
-          wallet.adminkey
+          adminkey
         )
         const permissions = []
         for (const [key, value] of Object.entries(response.data)) {
@@ -266,7 +352,7 @@ window.app = Vue.createApp({
         }
         this.nodePermissions = permissions
       } catch (error) {
-        Lnbits.utils.notifyApiError(error)
+        LNbits.utils.notifyApiError(error)
       }
       this.loadConnectDialogData()
       const newTableEntries = []
@@ -295,7 +381,9 @@ window.app = Vue.createApp({
           pubkey: nwc.data.pubkey,
           permissions: nwc.data.permissions,
           budgets: [],
-          status: 'Active'
+          status: 'Active',
+          wallet_id: nwc.wallet_id || null,
+          wallet_name: nwc.wallet_name || ''
         }
         if (
           nwc.data.expires_at > 0 &&
@@ -328,6 +416,10 @@ window.app = Vue.createApp({
           })
         }
         newTableEntries.push(nwcTableEntry)
+      }
+      // Sort by wallet name when showing all wallets
+      if (this.selectedWallet === 'all') {
+        newTableEntries.sort((a, b) => a.wallet_name.localeCompare(b.wallet_name))
       }
       this.nwcEntries = newTableEntries
     },
@@ -393,7 +485,15 @@ window.app = Vue.createApp({
           created_at: new Date(new Date().setHours(0, 0, 0, 0)).getTime() / 1000
         })
       }
-      const wallet = this.getWallet()
+      // Use dialogWallet for creating connections (handles "All Wallets" case)
+      const wallet = this.getDialogWallet()
+      if (!wallet) {
+        Quasar.Notify.create({
+          type: 'negative',
+          message: 'Please select a wallet'
+        })
+        return
+      }
 
       try {
         const response = await LNbits.api.request(
@@ -420,14 +520,20 @@ window.app = Vue.createApp({
   },
 
   created: function () {
-    // Auto-select first wallet to show connections by default
-    if (this.g.user.wallets && this.g.user.wallets.length > 0) {
-      this.selectedWallet = this.g.user.wallets[0].id
-    }
+    // Default to "All Wallets" to show all connections
+    this.selectedWallet = 'all'
+    // Load connections on initial page load
+    this.loadNwcs()
   },
   watch: {
     selectedWallet(newValue, oldValue) {
       this.loadNwcs()
+    },
+    dialogWallet(newValue, oldValue) {
+      // Reload lightning addresses when dialog wallet changes
+      if (newValue && this.connectDialog.show) {
+        this.loadLightningAddresses()
+      }
     }
   }
 })

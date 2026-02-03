@@ -16,10 +16,21 @@
           dense
           emit-value
           map-options
-          :options="g.user.walletOptions"
+          :options="walletOptions"
           label="Wallet *"
           class="col"
-        ></q-select>
+        >
+          <template v-slot:option="scope">
+            <q-item v-bind="scope.itemProps">
+              <q-item-section>
+                <q-item-label v-text="scope.opt.label"></q-item-label>
+              </q-item-section>
+              <q-item-section side v-if="scope.opt.count !== null">
+                <q-badge color="primary" :label="scope.opt.count" rounded />
+              </q-item-section>
+            </q-item>
+          </template>
+        </q-select>
         <q-btn
           v-if="this.g.user.admin"
           @click="go('/nwcprovider/admin')"
@@ -45,15 +56,33 @@
             round
           />
         </div>
+        <!-- Empty state when no connections -->
+        <div v-if="nwcEntries.length === 0" class="text-center" style="padding: 48px 24px;">
+          <q-icon name="cable" size="40px" color="grey-5" class="q-mb-md"></q-icon>
+          <div class="text-body2 text-grey-6" style="max-width: 280px; margin: 0 auto 24px; line-height: 1.5;">
+            Connect apps to enable automated payments within your budget limits.
+          </div>
+          <q-btn
+            @click="showConnectDialog()"
+            icon="add"
+            color="primary"
+            label="Connect App"
+            unelevated
+          />
+        </div>
+
+        <!-- Table shown when there are connections -->
         <q-table
+          v-else
           dense
           flat
           :rows="nwcEntries"
           row-key="id"
           :columns="nwcsTable.columns"
+          :visible-columns="visibleColumns"
           v-model:pagination="nwcsTable.pagination"
         >
-          <nwcprovider v-slot:header="props">
+          <template v-slot:header="props">
             <q-tr :props="props">
               <q-th
                 v-for="col in props.cols"
@@ -61,16 +90,28 @@
                 :props="props"
                 v-text="col.label"
               ></q-th>
+              <q-th auto-width></q-th>
             </q-tr>
-          </nwcprovider>
+          </template>
 
           <template v-slot:body="props">
             <q-tr :props="props">
               <q-td v-for="col in props.cols" :key="col.name" :props="props">
-                <div v-text="col.value"></div>
+                <!-- Clickable wallet name to switch to that wallet -->
+                <a
+                  v-if="col.name === 'wallet_name' && props.row.wallet_id"
+                  href="#"
+                  @click.prevent="switchToWallet(props.row.wallet_id)"
+                  class="text-primary cursor-pointer"
+                  style="text-decoration: none;"
+                >
+                  <span v-text="col.value"></span>
+                  <q-tooltip>Click to view this wallet</q-tooltip>
+                </a>
+                <div v-else v-text="col.value"></div>
               </q-td>
 
-              <q-td>
+              <q-td auto-width>
                 <q-btn
                   flat
                   dense
@@ -85,7 +126,7 @@
                   flat
                   dense
                   size="xs"
-                  @click="deleteNWC(props.row.pubkey)"
+                  @click="deleteNWC(props.row)"
                   icon="cancel"
                   color="pink"
                 >
@@ -101,65 +142,93 @@
 
   <div class="col-12 col-md-4 col-lg-5 q-gutter-y-md">
     <q-card>
+      <!-- Banner Image -->
+      <q-card-section class="q-pa-sm" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
+        <img
+          src="/nwcprovider/static/image/NWC_Banner_Extension.png"
+          alt="NWC Service Provider"
+          style="width: 100%; display: block; border-radius: 8px; opacity: 0.95;"
+        />
+      </q-card-section>
+
       <q-card-section>
-        <h6 class="text-subtitle1 q-my-none">NWC Service Provider</h6>
-        <p>
+        <div class="text-h6 q-mt-none q-mb-xs">NWC Service Provider</div>
+        <div class="text-caption text-grey-6 q-mb-md">Connect your wallet to any NWC-compatible app</div>
+        <p class="text-body2 q-mb-sm">
           Nostr Wallet Connect (NWC) is an open protocol to connect Lightning
           wallets to apps. This extension allows you to use your LNbits wallet
           with
           <a
             href="https://github.com/getAlby/awesome-nwc#nwc-wallets"
-            title="NWC wallets"
             target="_blank"
-            >any NWC compatible app</a
-          >.
+            class="text-primary"
+          >any NWC compatible app</a>.
         </p>
-        <p>
+        <p class="text-body2 q-mb-none">
           Before you can use this extension, you need to configure it.
           <a
             href="https://github.com/lnbits/nwcprovider#configuration"
-            title="NWC Service Provider User Guide"
             target="_blank"
-            >Read the User Guide</a
-          >
+            class="text-primary"
+          >Read the User Guide</a>
           to get started.
         </p>
-
-        <h6 class="text-subtitle2 q-my-none">Connecting a NWC App</h6>
-        <p>
-          Once you have configured the extension, you can connect a NWC
-          compatible app by following these steps:
-        </p>
-        <ol class="q-pl-md q-mt-sm">
-          <li class="q-mb-sm">
-            In the <strong>NWC Service Provider</strong> extension, select the
-            wallet you want to connect.
-          </li>
-          <li class="q-mb-sm">Click the "+" button to add a new connection.</li>
-          <li class="q-mb-sm">
-            Enter a description, expiry date (optional), permissions, and
-            limits.
-          </li>
-          <li class="q-mb-sm">Click "Connect" to create the connection.</li>
-          <li class="q-mb-sm">
-            Use the generated pairing URL or QR code to connect your chosen app.
-          </li>
-        </ol>
       </q-card-section>
 
-      <q-card-section class="q-pa-none">
-        <q-separator></q-separator>
-        <q-list>
-          <q-item
-            clickable
-            @click="go('../docs#/NWC%20Service%20Provider')"
-            class="q-flex items-center justify-between"
-          >
-            <q-icon name="swap_vertical_circle" class="q-mr-md"></q-icon>
-            <q-item-section>Swagger API</q-item-section>
+      <q-separator />
+
+      <q-card-section>
+        <div class="text-subtitle2 text-weight-medium q-mt-none q-mb-sm">Connecting a NWC App</div>
+        <p class="text-body2 text-grey-7 q-mb-sm">
+          Once configured, connect a NWC compatible app:
+        </p>
+        <q-list dense class="q-mx-none">
+          <q-item class="q-px-none q-py-xs">
+            <q-item-section avatar style="min-width: 28px;">
+              <q-avatar size="20px" color="primary" text-color="white" class="text-caption">1</q-avatar>
+            </q-item-section>
+            <q-item-section class="text-body2">Select the wallet you want to connect</q-item-section>
+          </q-item>
+          <q-item class="q-px-none q-py-xs">
+            <q-item-section avatar style="min-width: 28px;">
+              <q-avatar size="20px" color="primary" text-color="white" class="text-caption">2</q-avatar>
+            </q-item-section>
+            <q-item-section class="text-body2">Click the "+" button to add a new connection</q-item-section>
+          </q-item>
+          <q-item class="q-px-none q-py-xs">
+            <q-item-section avatar style="min-width: 28px;">
+              <q-avatar size="20px" color="primary" text-color="white" class="text-caption">3</q-avatar>
+            </q-item-section>
+            <q-item-section class="text-body2">Enter description, expiry, permissions, and limits</q-item-section>
+          </q-item>
+          <q-item class="q-px-none q-py-xs">
+            <q-item-section avatar style="min-width: 28px;">
+              <q-avatar size="20px" color="primary" text-color="white" class="text-caption">4</q-avatar>
+            </q-item-section>
+            <q-item-section class="text-body2">Click "Connect" to create the connection</q-item-section>
+          </q-item>
+          <q-item class="q-px-none q-py-xs">
+            <q-item-section avatar style="min-width: 28px;">
+              <q-avatar size="20px" color="primary" text-color="white" class="text-caption">5</q-avatar>
+            </q-item-section>
+            <q-item-section class="text-body2">Scan QR or paste URL in your app</q-item-section>
           </q-item>
         </q-list>
       </q-card-section>
+
+      <q-separator />
+
+      <q-list dense>
+        <q-item clickable @click="go('../docs#/NWC%20Service%20Provider')">
+          <q-item-section avatar style="min-width: 36px;">
+            <q-icon name="api" color="primary" size="sm"></q-icon>
+          </q-item-section>
+          <q-item-section class="text-body2">API Documentation</q-item-section>
+          <q-item-section side>
+            <q-icon name="chevron_right" color="grey" size="sm"></q-icon>
+          </q-item-section>
+        </q-item>
+      </q-list>
     </q-card>
   </div>
 
@@ -352,6 +421,17 @@
       <h3 class="q-ma-none q-mb-xl text-center">Add connection</h3>
 
       <q-form @submit="confirmConnectDialog" class="q-gutter-md">
+        <!-- Wallet picker shown when "All Wallets" is selected -->
+        <q-select
+          v-if="selectedWallet === 'all'"
+          v-model="dialogWallet"
+          filled
+          dense
+          emit-value
+          map-options
+          :options="g.user.wallets.map(w => ({label: w.name, value: w.id}))"
+          label="Wallet *"
+        ></q-select>
         <q-input
           v-model="connectDialog.data.description"
           filled

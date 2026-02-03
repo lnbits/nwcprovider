@@ -3,6 +3,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
+from lnbits.core.crud import get_wallets
 from lnbits.core.models import WalletTypeInfo
 from lnbits.decorators import check_admin, require_admin_key
 from loguru import logger
@@ -24,6 +25,7 @@ from .models import (
     GetBudgetsNWC,
     GetNWC,
     GetWalletNWC,
+    NWCGetAllResponse,
     NWCGetResponse,
     NWCRegistrationRequest,
 )
@@ -74,6 +76,43 @@ async def api_get_nwcs(
         budgets = await get_budgets_nwc(budgets_nwc)
         res = NWCGetResponse(data=nwc, budgets=budgets)
         out.append(res)
+    return out
+
+
+## Get nwc keys for all wallets belonging to the user
+@nwcprovider_api_router.get("/api/v1/nwc/all")
+async def api_get_all_nwcs(
+    include_expired: bool = False,
+    calculate_spent_budget: bool = False,
+    wallet: WalletTypeInfo = Depends(require_admin_key),
+) -> list[NWCGetAllResponse]:
+    """Get all NWC connections across all wallets for the current user."""
+    user_id = wallet.wallet.user
+
+    # Get all wallets for this user
+    user_wallets = await get_wallets(user_id)
+
+    out = []
+    for user_wallet in user_wallets:
+        wallet_id = user_wallet.id
+        wallet_name = user_wallet.name
+
+        wallet_nwcs = GetWalletNWC(wallet=wallet_id, include_expired=include_expired)
+        nwcs = await get_wallet_nwcs(wallet_nwcs)
+
+        for nwc in nwcs:
+            budgets_nwc = GetBudgetsNWC(
+                pubkey=nwc.pubkey, calculate_spent=calculate_spent_budget
+            )
+            budgets = await get_budgets_nwc(budgets_nwc)
+            res = NWCGetAllResponse(
+                data=nwc,
+                budgets=budgets,
+                wallet_id=wallet_id,
+                wallet_name=wallet_name,
+            )
+            out.append(res)
+
     return out
 
 
