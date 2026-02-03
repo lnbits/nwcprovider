@@ -112,6 +112,13 @@ class NWCGetResponse(BaseModel):
     budgets: list[NWCBudget]
 
 
+class NWCGetAllResponse(BaseModel):
+    data: NWCKey
+    budgets: list[NWCBudget]
+    wallet_id: str
+    wallet_name: str
+
+
 class NWCConfig(BaseModel):
     key: str
     value: str
