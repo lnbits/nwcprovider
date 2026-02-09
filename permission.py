@@ -30,4 +30,9 @@ nwc_permissions = {
         "default": True,
     },
     "info": {"name": "Read account info", "methods": ["get_info"], "default": True},
+    "notifications": {
+        "name": "Receive payment notifications",
+        "methods": [],
+        "default": True,
+    },
 }

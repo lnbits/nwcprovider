@@ -17,9 +17,11 @@ from lnbits.settings import settings
 from lnbits.wallets.base import PaymentStatus
 from loguru import logger
 
-from .crud import get_config_nwc, get_nwc, tracked_spend_nwc
+from lnbits.tasks import register_invoice_listener
+
+from .crud import get_config_nwc, get_nwc, get_wallet_nwcs, tracked_spend_nwc
 from .execution_queue import execution_queue
-from .models import GetNWC, NWCKey, TrackedSpendNWC
+from .models import GetNWC, GetWalletNWC, NWCKey, TrackedSpendNWC
 from .nwcp import NWCServiceProvider
 from .paranoia import (
     assert_boolean,
@@ -57,6 +59,81 @@ async def _check(nwc: NWCKey | None, method: str) -> dict | None:
             "message": "This public key is not allowed to do this operation.",
         }
     return None
+
+
+def _build_transaction_data(payment: Payment) -> dict:
+    """
+    Build the NIP-47 transaction data dict from a Payment object.
+    Used for lookup_invoice, list_transactions, and notification payloads.
+    """
+    invoice_data = bolt11_decode(payment.bolt11)
+    is_settled = not payment.pending
+    timestamp = int(payment.time.timestamp()) or int(invoice_data.date)
+    expiry = int(payment.expiry.timestamp()) if payment.expiry else timestamp + 3600
+    preimage = (
+        payment.preimage
+        or "0000000000000000000000000000000000000000000000000000000000000000"
+    )
+    # Derive NIP-47 state from Payment status
+    if payment.success:
+        state = "settled"
+    elif payment.failed:
+        state = "failed"
+    elif payment.is_expired:
+        state = "expired"
+    else:
+        state = "pending"
+    res: dict = {
+        "type": "outgoing" if payment.is_out else "incoming",
+        "state": state,
+        "invoice": payment.bolt11,
+        "description": (
+            payment.extra.get("comment") or payment.memo or invoice_data.description
+        ),
+        "preimage": preimage if is_settled or payment.is_in else None,
+        "payment_hash": payment.payment_hash,
+        "amount": abs(payment.msat),
+        "fees_paid": abs(payment.fee),
+        "created_at": timestamp,
+        "expires_at": expiry,
+        "settled_at": timestamp if is_settled else None,
+        "metadata": {},
+    }
+    if invoice_data.description_hash:
+        res["description_hash"] = invoice_data.description_hash
+    return res
+
+
+async def _send_notification_to_wallet(
+    sp: NWCServiceProvider,
+    wallet_id: str,
+    notification_type: str,
+    notification: dict,
+    exclude_pubkey: str | None = None,
+):
+    """
+    Send a notification to all NWC keys on a wallet that have the
+    'notifications' permission. Best-effort: errors are logged, never raised.
+    """
+    try:
+        nwc_keys = await get_wallet_nwcs(GetWalletNWC(wallet=wallet_id))
+        for nwc_key in nwc_keys:
+            if exclude_pubkey and nwc_key.pubkey == exclude_pubkey:
+                continue
+            permissions = nwc_key.get_permissions()
+            if "notifications" not in permissions:
+                continue
+            try:
+                await sp.send_notification(
+                    nwc_key.pubkey, notification_type, notification
+                )
+            except Exception as e:
+                logger.debug(
+                    f"Failed to send {notification_type} notification "
+                    f"to {nwc_key.pubkey[:8]}...: {e}"
+                )
+    except Exception as e:
+        logger.debug(f"Failed to send notifications for wallet {wallet_id}: {e}")
 
 
 async def _process_invoice(
@@ -161,9 +238,22 @@ async def _on_pay_invoice(
     if error:
         return [(None, error, [])]
     preimage = res.get("preimage")
+    payment_hash = res.get("payment_hash")
     out = {
         "preimage": preimage,
     }
+    # Send payment_sent notification to other keys on this wallet
+    try:
+        if payment_hash:
+            payment = await get_wallet_payment(nwc.wallet, payment_hash)
+            if payment:
+                notification = _build_transaction_data(payment)
+                await _send_notification_to_wallet(
+                    sp, nwc.wallet, "payment_sent", notification,
+                    exclude_pubkey=pubkey,
+                )
+    except Exception as e:
+        logger.debug(f"Failed to send payment_sent notification: {e}")
     # await log_nwc(pubkey, payload)
     return [(out, None, [])]
 
@@ -213,14 +303,31 @@ async def _on_multi_pay_invoice(
             if error:
                 results.append((None, error, []))
             else:
+                payment_hash = res.get("payment_hash")
                 r = (
                     {
                         "preimage": res.get("preimage"),
                     },
                     None,
-                    [["d", invoice_id if invoice_id else res.get("payment_hash")]],
+                    [["d", invoice_id if invoice_id else payment_hash]],
                 )
                 results.append(r)
+                # Send payment_sent notification to other keys on this wallet
+                try:
+                    if payment_hash:
+                        payment = await get_wallet_payment(
+                            nwc.wallet, payment_hash
+                        )
+                        if payment:
+                            notification = _build_transaction_data(payment)
+                            await _send_notification_to_wallet(
+                                sp, nwc.wallet, "payment_sent", notification,
+                                exclude_pubkey=pubkey,
+                            )
+                except Exception as e:
+                    logger.debug(
+                        f"Failed to send payment_sent notification: {e}"
+                    )
         except Exception as e:
             results.append((None, {"code": "INTERNAL", "message": str(e)}, []))
     # await log_nwc(pubkey, payload)
@@ -333,32 +440,7 @@ async def _on_lookup_invoice(
     payment = await get_wallet_payment(nwc.wallet, payment_hash)
     if not payment:
         raise Exception("Payment not found")
-    invoice_data = bolt11_decode(payment.bolt11)
-    is_settled = not payment.pending
-    timestamp = int(payment.time.timestamp()) or int(invoice_data.date)
-    expiry = int(payment.expiry.timestamp()) if payment.expiry else timestamp + 3600
-    preimage = (
-        payment.preimage
-        or "0000000000000000000000000000000000000000000000000000000000000000"
-    )
-    res: dict = {
-        "type": "outgoing" if payment.is_out else "incoming",
-        "invoice": payment.bolt11,
-        # Priority: LNURL comment > memo > invoice description
-        "description": (
-            payment.extra.get("comment") or payment.memo or invoice_data.description
-        ),
-        "preimage": preimage if is_settled or payment.is_in else None,
-        "payment_hash": payment.payment_hash,
-        "amount": abs(payment.msat),
-        "fees_paid": abs(payment.fee),
-        "created_at": timestamp,
-        "expires_at": expiry,
-        "settled_at": timestamp if is_settled else None,
-        "metadata": {},
-    }
-    if invoice_data.description_hash:
-        res["description_hash"] = invoice_data.description_hash
+    res = _build_transaction_data(payment)
     # await log_nwc(pubkey, payload)
     return [(res, None, [])]
 
@@ -409,28 +491,8 @@ async def _on_list_transactions(
         offset=offset,
     )
     transactions: list[dict] = []
-    p: Payment
     for p in history:
-        invoice_data = bolt11_decode(p.bolt11)
-        is_settled = not p.pending
-        timestamp = int(p.time.timestamp()) or invoice_data.date
-        # Priority: LNURL comment > memo > invoice description
-        description = p.extra.get("comment") or p.memo or invoice_data.description
-        transactions.append(
-            {
-                "type": "outgoing" if p.is_out else "incoming",
-                "invoice": p.bolt11,
-                "description": description,
-                "description_hash": invoice_data.description_hash,
-                "preimage": p.preimage if is_settled or p.is_in else None,
-                "payment_hash": p.payment_hash,
-                "amount": abs(p.msat),
-                "fees_paid": p.fee,
-                "created_at": timestamp,
-                "settled_at": timestamp if is_settled else None,
-                "metadata": {},
-            }
-        )
+        transactions.append(_build_transaction_data(p))
     # await log_nwc(pubkey, payload)
     return [({"transactions": transactions}, None, [])]
 
@@ -483,6 +545,10 @@ async def _on_get_info(
             if spm in allowed_methods:
                 account_methods.append(spm)
                 break
+    # Include supported notifications if key has notifications permission
+    notifications = []
+    if "notifications" in permissions:
+        notifications = sp.supported_notifications
     # await log_nwc(pubkey, payload)
     return [
         (
@@ -493,11 +559,32 @@ async def _on_get_info(
                 "block_height": 0,
                 "block_hash": "",
                 "methods": account_methods,
+                "notifications": notifications,
             },
             None,
             [],
         )
     ]
+
+
+async def _on_invoice_paid(sp: NWCServiceProvider, payment: Payment):
+    """Handle an incoming payment by sending payment_received notifications."""
+    try:
+        notification = _build_transaction_data(payment)
+        await _send_notification_to_wallet(
+            sp, payment.wallet_id, "payment_received", notification
+        )
+    except Exception as e:
+        logger.debug(f"Failed to handle invoice paid notification: {e}")
+
+
+async def _notification_listener(sp: NWCServiceProvider):
+    """Listen for incoming paid invoices and send payment_received notifications."""
+    queue: asyncio.Queue = asyncio.Queue()
+    register_invoice_listener(queue, "ext_nwcprovider")
+    while True:
+        payment = await queue.get()
+        await _on_invoice_paid(sp, payment)
 
 
 async def handle_nwc():
@@ -517,10 +604,12 @@ async def handle_nwc():
     # nwcsp.addRequestListener("multi_pay_keysend", _on_multi_pay_keysend)
     ###
     await nwcsp.start()
+    notification_task = asyncio.create_task(_notification_listener(nwcsp))
     try:
         while True:
             await asyncio.sleep(3600)
     except asyncio.CancelledError:
+        notification_task.cancel()
         await nwcsp.cleanup()
         raise
 
