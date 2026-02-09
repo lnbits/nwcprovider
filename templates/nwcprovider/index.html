@@ -199,7 +199,7 @@
             <q-item-section avatar style="min-width: 28px;">
               <q-avatar size="20px" color="primary" text-color="white" class="text-caption">3</q-avatar>
             </q-item-section>
-            <q-item-section class="text-body2">Enter description, expiry, permissions, and limits</q-item-section>
+            <q-item-section class="text-body2">Set a description, expiry, permissions, and spending limits</q-item-section>
           </q-item>
           <q-item class="q-px-none q-py-xs">
             <q-item-section avatar style="min-width: 28px;">
@@ -238,7 +238,7 @@
   >
     <q-card class="q-pa-lg q-pt-xl" style="width: 500px">
       <q-card-section class="q-ma-none">
-        <h3 class="q-ma-none q-mb-md text-center">Info</h3>
+        <h3 class="q-ma-none q-mb-md text-center">Connection Details</h3>
         <q-list>
           <q-item>
             <q-item-section>Description</q-item-section>
@@ -293,7 +293,7 @@
                   <q-tr
                     v-if="!connectionInfoDialog.data.budgets || connectionInfoDialog.data.budgets.length === 0"
                   >
-                    <q-td colspan="2" class="text-center">No limits</q-td>
+                    <q-td colspan="2" class="text-center">No spending limits</q-td>
                   </q-tr>
                   <q-tr
                     v-else
@@ -338,10 +338,10 @@
       </q-card-section>
       <q-card-section class="q-ma-none">
         <p class="q-ma-none text-center">
-          Please scan this QR code with a supported app
+          Scan this QR code with your compatible app
         </p>
         <p class="q-ma-none text-center text-caption">
-          Connect only with app you trust!
+          Connect only with an app that you trust!
         </p>
       </q-card-section>
       <q-card-actions>
@@ -359,14 +359,13 @@
   <q-dialog v-model="pairingDialog.show" @hide="closePairingDialog">
     <q-card class="q-pa-lg q-pt-xl" style="width: 500px">
       <q-card-section class="q-ma-none">
-        <h3 class="q-ma-none q-mb-md text-center">Pairing</h3>
+        <h3 class="q-ma-none q-mb-md text-center">Pair Connection</h3>
         <p class="q-ma-none text-center">
-          Complete the last step of the setup by pasting or scanning your
-          connection's pairing secret in the desired app to finalise the
-          connection.
+          Paste the connection URL or scan the QR code in your compatible
+          app to complete the pairing.
         </p>
         <p class="q-ma-none text-center text-caption">
-          Connect only with app you trust!
+          Connect only with an app that you trust!
         </p>
       </q-card-section>
       <q-card-actions>
@@ -418,7 +417,7 @@
 
   <q-dialog v-model="connectDialog.show" @hide="closeConnectDialog">
     <q-card class="q-pa-lg q-pt-xl" style="width: 500px">
-      <h3 class="q-ma-none q-mb-xl text-center">Add connection</h3>
+      <h3 class="q-ma-none q-mb-xl text-center">New Connection</h3>
 
       <q-form @submit="confirmConnectDialog" class="q-gutter-md">
         <!-- Wallet picker shown when "All Wallets" is selected -->
@@ -444,7 +443,7 @@
           filled
           dense
           label="Lightning Address (optional)"
-          hint="e.g. user@domain.com"
+          hint="Attach a lightning address to this connection so apps can display it as your receiving address"
           placeholder="Enter or select lightning address"
         >
           <template v-slot:append>
@@ -488,7 +487,7 @@
                         </div>
                         <div class="text-grey-5 text-caption q-mt-xs">
                           Create one in the Paylinks extension<br />or enter an
-                          address manually above
+                          address manually
                         </div>
                       </div>
                     </q-item-section>
@@ -516,7 +515,6 @@
             :disable="connectDialog.data.neverExpires"
             v-model="connectDialog.data.expires_at"
             class="col"
-            v-model="connectDialog.data.expires_at"
             filled
             dense
             label="Expires at"
@@ -525,13 +523,12 @@
           <q-checkbox
             v-model="connectDialog.data.neverExpires"
             class="col-auto"
-            v-model="connectDialog.data.neverExpires"
             label="Never"
           ></q-checkbox>
         </div>
         <q-list dense bordered padding>
           <q-item>
-            <q-item-label header>Authorize the app to</q-item-label>
+            <q-item-label header>Authorize the connected app to</q-item-label>
           </q-item>
           <q-item v-for="permission in connectDialog.data.permissions">
             <q-checkbox
@@ -542,13 +539,13 @@
         </q-list>
         <q-list dense bordered padding>
           <q-item>
-            <q-item-label header>Limit the spendable amount</q-item-label>
+            <q-item-label header>Set a spending limit</q-item-label>
           </q-item>
           <q-item
             v-if="!connectDialog.data.budgets || connectDialog.data.budgets.length === 0"
           >
             <q-item-section class="full-width text-center"
-              >No limit</q-item-section
+              >No spending limit</q-item-section
             >
           </q-item>
           <template v-else>
@@ -572,9 +569,9 @@
                     {label: 'Weekly', value: 'Weekly'},
                     {label: 'Monthly', value: 'Monthly'},
                     {label: 'Yearly', value: 'Yearly'},
-                    {label: 'Never', value: 'Never'}
+                    {label: 'One-time', value: 'Never'}
                   ]"
-                  label="Expires"
+                  label="Resets"
                   v-model="budget.expiry"
                 ></q-select>
               </q-item-section>
