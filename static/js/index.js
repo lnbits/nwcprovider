@@ -114,7 +114,7 @@ window.app = Vue.createApp({
         } else {
           Quasar.Notify.create({
             type: 'negative',
-            message: 'No wallets available'
+            message: 'No wallets found'
           })
           return
         }
@@ -262,7 +262,7 @@ window.app = Vue.createApp({
     deleteNWC: async function (row) {
       Quasar.Dialog.create({
         title: 'Confirm Deletion',
-        message: 'Are you sure you want to delete this connection?',
+        message: 'This will disconnect the app. Are you sure?',
         cancel: true,
         persistent: true
       })
@@ -292,7 +292,7 @@ window.app = Vue.createApp({
             this.loadNwcs()
             Quasar.Notify.create({
               type: 'positive',
-              message: 'Deleted successfully'
+              message: 'Connection removed'
             })
           } catch (error) {
             LNbits.utils.notifyApiError(error)
@@ -490,7 +490,7 @@ window.app = Vue.createApp({
       if (!wallet) {
         Quasar.Notify.create({
           type: 'negative',
-          message: 'Please select a wallet'
+          message: 'Select a wallet first'
         })
         return
       }
