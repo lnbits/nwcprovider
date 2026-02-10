@@ -205,3 +205,67 @@ async def test_info_event_loop_skips_when_disconnected(nwc_service_provider):
 
     # Nothing should have been sent because connected=False.
     assert len(sent) == 0
+
+
+@pytest.mark.asyncio
+async def test_send_notification(nwc_service_provider, nwc_service_provider2):
+    """Test that send_notification builds a correct kind 23196 event."""
+    sent_events = []
+
+    async def _capture_send(data):
+        sent_events.append(data)
+
+    nwc_service_provider2._send = _capture_send
+
+    notification = {
+        "type": "incoming",
+        "state": "settled",
+        "invoice": "lnbc1000...",
+        "payment_hash": "abc123",
+        "amount": 1000,
+        "created_at": 1234567890,
+        "settled_at": 1234567890,
+    }
+
+    await nwc_service_provider2.send_notification(
+        nwc_service_provider.public_key_hex,
+        "payment_received",
+        notification,
+    )
+
+    assert len(sent_events) == 1
+    event_data = sent_events[0]
+    # Should be ["EVENT", {...}]
+    assert event_data[0] == "EVENT"
+    event = event_data[1]
+
+    # Verify kind 23196
+    assert event["kind"] == 23196
+
+    # Verify signature
+    assert nwc_service_provider._verify_event(event)
+
+    # Verify tags: only ["p", client_pubkey], no ["e", ...] tag
+    tags = event["tags"]
+    p_tags = [t for t in tags if t[0] == "p"]
+    e_tags = [t for t in tags if t[0] == "e"]
+    assert len(p_tags) == 1
+    assert p_tags[0][1] == nwc_service_provider.public_key_hex
+    assert len(e_tags) == 0, "Notification events must not have an 'e' tag"
+
+    # Decrypt and verify content
+    content = nwc_service_provider.private_key.decrypt_message(
+        event["content"], nwc_service_provider2.public_key_hex
+    )
+    content = json.loads(content)
+    assert content["notification_type"] == "payment_received"
+    assert content["notification"]["type"] == "incoming"
+    assert content["notification"]["state"] == "settled"
+    assert content["notification"]["payment_hash"] == "abc123"
+    assert content["notification"]["amount"] == 1000
+
+
+def test_supported_notifications(nwc_service_provider):
+    """Test that supported_notifications is set correctly."""
+    assert "payment_received" in nwc_service_provider.supported_notifications
+    assert "payment_sent" in nwc_service_provider.supported_notifications
