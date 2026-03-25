@@ -103,6 +103,12 @@ class NWCServiceProvider:
         # List of supported methods
         self.supported_methods: list[str] = []
 
+        # List of supported notification types
+        self.supported_notifications: list[str] = [
+            "payment_received",
+            "payment_sent",
+        ]
+
         # Keep track of the number of subscriptions (used for unique subid)
         self.subscriptions_count: int = 0
 
@@ -308,11 +314,14 @@ class NWCServiceProvider:
         """
         Build and publish the NWC service info event (kind 13194).
         """
+        tags = [["p", self.public_key_hex]]
+        if self.supported_notifications:
+            tags.append(["notifications", " ".join(self.supported_notifications)])
         event = {
             "kind": 13194,
             "content": " ".join(self.supported_methods),
             "created_at": int(time.time()),
-            "tags": [["p", self.public_key_hex]],
+            "tags": tags,
         }
         self._sign_event(event)
         await self._send(["EVENT", event])
@@ -414,6 +423,32 @@ class NWCServiceProvider:
             except Exception:
                 pass
         return expiration
+
+    async def send_notification(
+        self, client_pubkey: str, notification_type: str, notification: dict
+    ):
+        """
+        Send a NIP-47 notification event (kind 23196) to a client.
+
+        Args:
+            client_pubkey: The client's public key hex.
+            notification_type: The notification type (e.g. "payment_received").
+            notification: The notification payload dict.
+        """
+        content = self._json_dumps(
+            {
+                "notification_type": notification_type,
+                "notification": notification,
+            }
+        )
+        event: dict = {
+            "kind": 23196,
+            "created_at": int(time.time()),
+            "tags": [["p", client_pubkey]],
+            "content": self.private_key.encrypt_message(content, client_pubkey),
+        }
+        self._sign_event(event)
+        await self._send(["EVENT", event])
 
     async def _on_event_message(self, msg):
         if not self.sub:

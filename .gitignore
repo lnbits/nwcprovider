@@ -10,3 +10,4 @@ data
 .vscode
 dump
 .venv
+.claude
