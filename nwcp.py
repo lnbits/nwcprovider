@@ -121,6 +121,9 @@ class NWCServiceProvider:
         # Garbage collection loop
         self.gc_task = None
 
+        # Periodic info event resend loop
+        self.info_event_task = None
+
         # Subscription
         self.sub = None
         self.rate_limit: dict[str, RateLimit] = {}
@@ -185,6 +188,7 @@ class NWCServiceProvider:
         """
         self.reconnect_task = asyncio.create_task(self._connect_to_relay())
         self.gc_task = asyncio.create_task(self._gc_loop())
+        self.info_event_task = asyncio.create_task(self._info_event_loop())
 
     def _json_dumps(self, data: Union[dict, list]) -> str:
         """
@@ -296,6 +300,14 @@ class NWCServiceProvider:
         methods and subscribe to nip67 events.
         """
         # Send info event
+        await self._send_info_event()
+        # Resubscribe to nwc events
+        await self._subscribe()
+
+    async def _send_info_event(self):
+        """
+        Build and publish the NWC service info event (kind 13194).
+        """
         event = {
             "kind": 13194,
             "content": " ".join(self.supported_methods),
@@ -304,8 +316,20 @@ class NWCServiceProvider:
         }
         self._sign_event(event)
         await self._send(["EVENT", event])
-        # Resubscribe to nwc events
-        await self._subscribe()
+
+    async def _info_event_loop(self):
+        """
+        Periodically resend the service info event (kind 13194) so that the
+        provider can recover if the relay silently dropped the event without
+        closing the WebSocket connection.
+        """
+        while not self._is_shutting_down():
+            await asyncio.sleep(60)
+            if self.connected and not self._is_shutting_down():
+                try:
+                    await self._send_info_event()
+                except Exception as e:
+                    logger.warning("Error resending info event: " + str(e))
 
     async def _handle_request(self, event: dict) -> list[dict]:
         """
@@ -600,6 +624,11 @@ class NWCServiceProvider:
                 self.gc_task.cancel()
         except Exception as e:
             logger.warning("Error closing gc loop: " + str(e))
+        try:
+            if self.info_event_task:
+                self.info_event_task.cancel()
+        except Exception as e:
+            logger.warning("Error closing info event loop: " + str(e))
         # close the websocket
         try:
             if self.ws:
