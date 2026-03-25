@@ -1,3 +1,4 @@
+# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
 """
 Standalone test for NIP-47 notification event construction.
 Runs without lnbits installed - tests nwcp.py directly.

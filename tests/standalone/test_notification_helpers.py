@@ -1,3 +1,4 @@
+# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
 """
 Test notification helper logic: permission filtering, data structures.
 Mocks lnbits to run standalone.
