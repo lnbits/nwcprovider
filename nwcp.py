@@ -316,9 +316,7 @@ class NWCServiceProvider:
         """
         tags = [["p", self.public_key_hex]]
         if self.supported_notifications:
-            tags.append(
-                ["notifications", " ".join(self.supported_notifications)]
-            )
+            tags.append(["notifications", " ".join(self.supported_notifications)])
         event = {
             "kind": 13194,
             "content": " ".join(self.supported_methods),

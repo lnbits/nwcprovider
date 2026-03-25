@@ -224,9 +224,7 @@ class NWCWallet:
                         "since": int(time.time()),
                     }
                     await self.ws.send(
-                        self._json_dumps(
-                            ["REQ", self.notif_sub_id, notif_filter]
-                        )
+                        self._json_dumps(["REQ", self.notif_sub_id, notif_filter])
                     )
                     while not self._is_shutting_down() and not ws.closed:
                         try:
@@ -362,15 +360,12 @@ class NWCWallet:
                     return n["notification"], n["tags"]
             await asyncio.sleep(0.5)
             if time.time() > now + timeout:
-                raise Exception(
-                    f"Timeout waiting for {notification_type} notification"
-                )
+                raise Exception(f"Timeout waiting for {notification_type} notification")
 
     def has_notification(self, notification_type):
         """Check if a notification of the given type is already queued."""
         return any(
-            n["notification_type"] == notification_type
-            for n in self.notification_queue
+            n["notification_type"] == notification_type for n in self.notification_queue
         )
 
 
@@ -1097,9 +1092,7 @@ async def test_payment_received_notification():
     nwc_invoicer = await create_nwc(
         "wallet1", "notif_invoicer", ["invoice", "notifications"], [], 0
     )
-    nwc_payer = await create_nwc(
-        "wallet2", "notif_payer", ["pay"], [], 0
-    )
+    nwc_payer = await create_nwc("wallet2", "notif_payer", ["pay"], [], 0)
 
     invoicer = NWCWallet(nwc_invoicer["pairing"])
     payer = NWCWallet(nwc_payer["pairing"])
@@ -1184,7 +1177,7 @@ async def test_payment_sent_notification():
         assert not error
 
         # Observer (other key on wallet2) should get payment_sent notification
-        notification, tags = await observer.wait_for_notification(
+        notification, _tags = await observer.wait_for_notification(
             "payment_sent", timeout=30
         )
         assert notification["type"] == "outgoing"
@@ -1194,9 +1187,9 @@ async def test_payment_sent_notification():
 
         # Sender should NOT get a payment_sent notification (they got the response)
         await asyncio.sleep(3)
-        assert not sender.has_notification("payment_sent"), (
-            "Sender should not receive payment_sent notification"
-        )
+        assert not sender.has_notification(
+            "payment_sent"
+        ), "Sender should not receive payment_sent notification"
 
     finally:
         await sender.close()
@@ -1210,16 +1203,12 @@ async def test_no_notification_without_permission():
     await check_services()
 
     # Key WITHOUT notifications permission
-    nwc_no_notif = await create_nwc(
-        "wallet1", "no_notif_key", ["invoice"], [], 0
-    )
+    nwc_no_notif = await create_nwc("wallet1", "no_notif_key", ["invoice"], [], 0)
     # Key WITH notifications permission (to verify notifications work)
     nwc_with_notif = await create_nwc(
         "wallet1", "with_notif_key", ["notifications"], [], 0
     )
-    nwc_payer = await create_nwc(
-        "wallet2", "notif_perm_payer", ["pay"], [], 0
-    )
+    nwc_payer = await create_nwc("wallet2", "notif_perm_payer", ["pay"], [], 0)
 
     no_notif = NWCWallet(nwc_no_notif["pairing"])
     with_notif = NWCWallet(nwc_with_notif["pairing"])
@@ -1251,9 +1240,9 @@ async def test_no_notification_without_permission():
 
         # Key WITHOUT permission should NOT get notification
         await asyncio.sleep(3)
-        assert not no_notif.has_notification("payment_received"), (
-            "Key without notifications permission should not receive notifications"
-        )
+        assert not no_notif.has_notification(
+            "payment_received"
+        ), "Key without notifications permission should not receive notifications"
 
     finally:
         await no_notif.close()
@@ -1271,9 +1260,7 @@ async def test_get_info_includes_notifications():
         "wallet1", "info_notif_test", ["info", "notifications"], [], 0
     )
     # Key with info but WITHOUT notifications permission
-    nwc_without = await create_nwc(
-        "wallet1", "info_no_notif_test", ["info"], [], 0
-    )
+    nwc_without = await create_nwc("wallet1", "info_no_notif_test", ["info"], [], 0)
 
     wallet_with = NWCWallet(nwc_with["pairing"])
     wallet_without = NWCWallet(nwc_without["pairing"])

@@ -14,10 +14,9 @@ from lnbits.core.services import (
 from lnbits.db import Filters
 from lnbits.exceptions import PaymentError
 from lnbits.settings import settings
+from lnbits.tasks import register_invoice_listener
 from lnbits.wallets.base import PaymentStatus
 from loguru import logger
-
-from lnbits.tasks import register_invoice_listener
 
 from .crud import get_config_nwc, get_nwc, get_wallet_nwcs, tracked_spend_nwc
 from .execution_queue import execution_queue
@@ -189,7 +188,7 @@ async def _process_invoice(
     payment_status: PaymentStatus | None = None
     while wait_for_preimage:
         payment_status = await check_transaction_status(wallet_id, payment_hash)
-        if payment_status.success:
+        if payment_status and payment_status.success:
             break
         await asyncio.sleep(0.05)
     if not payment_status:
@@ -242,20 +241,31 @@ async def _on_pay_invoice(
     out = {
         "preimage": preimage,
     }
-    # Send payment_sent notification to other keys on this wallet
+    await _notify_payment_sent(sp, nwc.wallet, pubkey, payment_hash)
+    return [(out, None, [])]
+
+
+async def _notify_payment_sent(
+    sp: NWCServiceProvider,
+    wallet_id: str,
+    exclude_pubkey: str,
+    payment_hash: str | None,
+) -> None:
+    """Send payment_sent notification to other keys on this wallet."""
     try:
         if payment_hash:
-            payment = await get_wallet_payment(nwc.wallet, payment_hash)
+            payment = await get_wallet_payment(wallet_id, payment_hash)
             if payment:
                 notification = _build_transaction_data(payment)
                 await _send_notification_to_wallet(
-                    sp, nwc.wallet, "payment_sent", notification,
-                    exclude_pubkey=pubkey,
+                    sp,
+                    wallet_id,
+                    "payment_sent",
+                    notification,
+                    exclude_pubkey=exclude_pubkey,
                 )
     except Exception as e:
         logger.debug(f"Failed to send payment_sent notification: {e}")
-    # await log_nwc(pubkey, payload)
-    return [(out, None, [])]
 
 
 async def _on_multi_pay_invoice(
@@ -312,22 +322,7 @@ async def _on_multi_pay_invoice(
                     [["d", invoice_id if invoice_id else payment_hash]],
                 )
                 results.append(r)
-                # Send payment_sent notification to other keys on this wallet
-                try:
-                    if payment_hash:
-                        payment = await get_wallet_payment(
-                            nwc.wallet, payment_hash
-                        )
-                        if payment:
-                            notification = _build_transaction_data(payment)
-                            await _send_notification_to_wallet(
-                                sp, nwc.wallet, "payment_sent", notification,
-                                exclude_pubkey=pubkey,
-                            )
-                except Exception as e:
-                    logger.debug(
-                        f"Failed to send payment_sent notification: {e}"
-                    )
+                await _notify_payment_sent(sp, nwc.wallet, pubkey, payment_hash)
         except Exception as e:
             results.append((None, {"code": "INTERNAL", "message": str(e)}, []))
     # await log_nwc(pubkey, payload)

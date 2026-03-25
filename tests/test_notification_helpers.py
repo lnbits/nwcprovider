@@ -4,9 +4,8 @@ Mocks lnbits to run standalone.
 """
 
 import asyncio
-import json
-import sys
 import os
+import sys
 import types
 from datetime import datetime, timezone
 
@@ -17,23 +16,41 @@ sys.path.insert(0, PROJECT_DIR)
 
 # Mock loguru
 loguru_mod = types.ModuleType("loguru")
+
+
 class _MockLogger:
-    def debug(self, *a, **kw): pass
-    def info(self, *a, **kw): pass
-    def warning(self, *a, **kw): pass
-    def error(self, *a, **kw): pass
-    def exception(self, *a, **kw): pass
+    def debug(self, *a, **kw):
+        pass
+
+    def info(self, *a, **kw):
+        pass
+
+    def warning(self, *a, **kw):
+        pass
+
+    def error(self, *a, **kw):
+        pass
+
+    def exception(self, *a, **kw):
+        pass
+
+
 loguru_mod.logger = _MockLogger()
 sys.modules["loguru"] = loguru_mod
 
 # Mock pydantic (needed by models.py)
 pydantic_mod = types.ModuleType("pydantic")
+
+
 class BaseModel:
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
+
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
+
+
 pydantic_mod.BaseModel = BaseModel
 sys.modules["pydantic"] = pydantic_mod
 
@@ -53,50 +70,81 @@ lnbits.exceptions = types.ModuleType("lnbits.exceptions")
 lnbits.wallets = types.ModuleType("lnbits.wallets")
 lnbits.wallets.base = types.ModuleType("lnbits.wallets.base")
 
+
 class MockSettings:
     port = 5000
     lnbits_running = True
     lnbits_site_title = "TestLNbits"
 
+
 lnbits.settings.settings = MockSettings()
 
+
 class MockFilters:
-    def where(self, x): pass
-    def values(self, x): pass
+    def where(self, x):
+        pass
+
+    def values(self, x):
+        pass
+
 
 lnbits.db.Filters = MockFilters
+
 
 class MockPaymentError(Exception):
     def __init__(self, message="", status="failed"):
         self.message = message
         self.status = status
 
+
 lnbits.exceptions.PaymentError = MockPaymentError
 
+
 # Mock lnbits.core.crud functions
-async def _mock_get_payments(*a, **kw): return []
-async def _mock_get_wallet(*a, **kw): return None
-async def _mock_get_wallet_payment(*a, **kw): return None
+async def _mock_get_payments(*a, **kw):
+    return []
+
+
+async def _mock_get_wallet(*a, **kw):
+    return None
+
+
+async def _mock_get_wallet_payment(*a, **kw):
+    return None
+
+
 lnbits.core.crud.get_payments = _mock_get_payments
 lnbits.core.crud.get_wallet = _mock_get_wallet
 lnbits.core.crud.get_wallet_payment = _mock_get_wallet_payment
 
+
 # Mock lnbits.core.services functions
-async def _mock_svc(*a, **kw): return None
+async def _mock_svc(*a, **kw):
+    return None
+
+
 lnbits.core.services.check_transaction_status = _mock_svc
 lnbits.core.services.create_invoice = _mock_svc
 lnbits.core.services.pay_invoice = _mock_svc
+
 
 # Mock lnbits.wallets.base.PaymentStatus
 class MockPaymentStatus:
     def __init__(self, paid=False):
         self.paid = paid
+
+
 lnbits.wallets.base.PaymentStatus = MockPaymentStatus
+
 
 # Mock lnbits.db.Database
 class MockDatabase:
-    def __init__(self, *a, **kw): pass
+    def __init__(self, *a, **kw):
+        pass
+
+
 lnbits.db.Database = MockDatabase
+
 
 # Mock Payment class
 class MockPayment:
@@ -117,6 +165,7 @@ class MockPayment:
         self.success = not self.pending
         self.failed = False
         self.is_expired = False
+
 
 lnbits.core.models.Payment = MockPayment
 
@@ -140,6 +189,7 @@ for name, mod in [
 # Mock bolt11
 bolt11_mod = types.ModuleType("bolt11")
 
+
 class MockDecoded:
     def __init__(self):
         self.date = 1700000000
@@ -147,6 +197,7 @@ class MockDecoded:
         self.description_hash = None
         self.amount_msat = 5000
         self.payment_hash = "abc123"
+
 
 bolt11_mod.decode = lambda x: MockDecoded()
 sys.modules["bolt11"] = bolt11_mod
@@ -160,10 +211,10 @@ nwcprovider_pkg.__package__ = "nwcprovider"
 sys.modules["nwcprovider"] = nwcprovider_pkg
 
 # Import submodules that tasks.py needs (they're importable from sys.path)
-import paranoia as _paranoia
-import execution_queue as _execution_queue
-import nwcp as _nwcp
-import permission as _permission
+import execution_queue as _execution_queue  # noqa: E402
+import nwcp as _nwcp  # noqa: E402
+import paranoia as _paranoia  # noqa: E402
+import permission as _permission  # noqa: E402
 
 # Register as package submodules
 sys.modules["nwcprovider.paranoia"] = _paranoia
@@ -176,16 +227,19 @@ nwcprovider_pkg.permission = _permission
 nwcprovider_pkg.execution_queue = _execution_queue
 
 # Import models.py (needs pydantic mock above, no relative imports)
-import models as _models
+import models as _models  # noqa: E402
+
 sys.modules["nwcprovider.models"] = _models
 nwcprovider_pkg.models = _models
 
 # Import crud.py via importlib (it uses relative imports)
-import importlib
+import importlib  # noqa: E402
+
 
 def _load_as_submodule(name, filename):
     spec = importlib.util.spec_from_file_location(
-        f"nwcprovider.{name}", os.path.join(PROJECT_DIR, filename),
+        f"nwcprovider.{name}",
+        os.path.join(PROJECT_DIR, filename),
         submodule_search_locations=[],
     )
     mod = importlib.util.module_from_spec(spec)
@@ -194,6 +248,7 @@ def _load_as_submodule(name, filename):
     setattr(nwcprovider_pkg, name, mod)
     spec.loader.exec_module(mod)
     return mod
+
 
 _crud = _load_as_submodule("crud", "crud.py")
 _tasks_mod = _load_as_submodule("tasks", "tasks.py")
@@ -206,6 +261,7 @@ nwc_permissions = _permission.nwc_permissions
 
 # ── Mock NWCKey for tests ──
 
+
 class MockNWCKey:
     def __init__(self, pubkey, wallet, permissions_str):
         self.pubkey = pubkey
@@ -217,6 +273,7 @@ class MockNWCKey:
 
 
 # ── Tests ──
+
 
 def test_permission_includes_notifications():
     """notifications permission exists with empty methods list."""
@@ -283,8 +340,8 @@ async def test_send_notification_to_wallet_filters_permissions():
 
     sent_to = []
 
-    async def mock_send_notification(pubkey, ntype, notification):
-        sent_to.append(pubkey)
+    async def mock_send_notification(client_pubkey, notification_type, notification):
+        sent_to.append(client_pubkey)
 
     sp.send_notification = mock_send_notification
 
@@ -306,7 +363,9 @@ async def test_send_notification_to_wallet_filters_permissions():
 
         assert "pub_a" in sent_to, "Key with notifications perm should receive"
         assert "pub_b" in sent_to, "Key with notifications perm should receive"
-        assert "pub_c" not in sent_to, "Key without notifications perm should NOT receive"
+        assert (
+            "pub_c" not in sent_to
+        ), "Key without notifications perm should NOT receive"
         assert len(sent_to) == 2
         print("  PASS: permission filtering works")
     finally:
@@ -322,8 +381,8 @@ async def test_send_notification_excludes_pubkey():
 
     sent_to = []
 
-    async def mock_send_notification(pubkey, ntype, notification):
-        sent_to.append(pubkey)
+    async def mock_send_notification(client_pubkey, notification_type, notification):
+        sent_to.append(client_pubkey)
 
     sp.send_notification = mock_send_notification
 
@@ -339,7 +398,10 @@ async def test_send_notification_excludes_pubkey():
 
     try:
         await tasks._send_notification_to_wallet(
-            sp, "wallet1", "payment_sent", {"amount": 1000},
+            sp,
+            "wallet1",
+            "payment_sent",
+            {"amount": 1000},
             exclude_pubkey="pub_sender",
         )
 
@@ -361,12 +423,12 @@ async def test_send_notification_error_isolation():
     sent_to = []
     call_count = 0
 
-    async def mock_send_notification(pubkey, ntype, notification):
+    async def mock_send_notification(client_pubkey, notification_type, notification):
         nonlocal call_count
         call_count += 1
-        if pubkey == "pub_fail":
+        if client_pubkey == "pub_fail":
             raise Exception("Simulated relay error")
-        sent_to.append(pubkey)
+        sent_to.append(client_pubkey)
 
     sp.send_notification = mock_send_notification
 
@@ -410,6 +472,7 @@ def main():
         except Exception as e:
             print(f"  FAIL: {test_fn.__name__}: {e}")
             import traceback
+
             traceback.print_exc()
             failed += 1
 
@@ -425,6 +488,7 @@ def main():
         except Exception as e:
             print(f"  FAIL: {test_fn.__name__}: {e}")
             import traceback
+
             traceback.print_exc()
             failed += 1
 

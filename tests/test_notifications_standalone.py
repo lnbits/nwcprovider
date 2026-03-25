@@ -5,8 +5,8 @@ Runs without lnbits installed - tests nwcp.py directly.
 
 import asyncio
 import json
-import sys
 import os
+import sys
 
 # Add parent to path so we can import nwcp directly
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -31,7 +31,7 @@ sys.modules["lnbits"] = lnbits
 sys.modules["lnbits.helpers"] = lnbits.helpers
 sys.modules["lnbits.settings"] = lnbits.settings
 
-from nwcp import NWCServiceProvider
+from nwcp import NWCServiceProvider  # noqa: E402
 
 
 def test_supported_notifications():
@@ -93,9 +93,7 @@ async def test_send_notification():
         "settled_at": 1700000000,
     }
 
-    await sp1.send_notification(
-        sp2.public_key_hex, "payment_received", notification
-    )
+    await sp1.send_notification(sp2.public_key_hex, "payment_received", notification)
 
     assert len(sent_events) == 1
     event_data = sent_events[0]
@@ -119,9 +117,7 @@ async def test_send_notification():
     assert len(e_tags) == 0, f"Notifications must not have e tags, got {len(e_tags)}"
 
     # Decrypt and verify content
-    content = sp2.private_key.decrypt_message(
-        event["content"], sp1.public_key_hex
-    )
+    content = sp2.private_key.decrypt_message(event["content"], sp1.public_key_hex)
     content = json.loads(content)
     assert content["notification_type"] == "payment_received"
     assert content["notification"]["type"] == "incoming"
@@ -160,17 +156,13 @@ async def test_send_notification_payment_sent():
         "settled_at": 1700000000,
     }
 
-    await sp1.send_notification(
-        sp2.public_key_hex, "payment_sent", notification
-    )
+    await sp1.send_notification(sp2.public_key_hex, "payment_sent", notification)
 
     assert len(sent_events) == 1
     event = sent_events[0][1]
     assert event["kind"] == 23196
 
-    content = sp2.private_key.decrypt_message(
-        event["content"], sp1.public_key_hex
-    )
+    content = sp2.private_key.decrypt_message(event["content"], sp1.public_key_hex)
     content = json.loads(content)
     assert content["notification_type"] == "payment_sent"
     assert content["notification"]["type"] == "outgoing"
@@ -206,16 +198,12 @@ async def test_encrypt_decrypt_roundtrip():
     event = sent_events[0][1]
 
     # Client decrypts using their private key and the sp's public key
-    decrypted = client.private_key.decrypt_message(
-        event["content"], sp.public_key_hex
-    )
+    decrypted = client.private_key.decrypt_message(event["content"], sp.public_key_hex)
     parsed = json.loads(decrypted)
     assert parsed["notification"]["amount"] == 42000
 
     # SP can also decrypt (NIP-04 is symmetric)
-    decrypted2 = sp.private_key.decrypt_message(
-        event["content"], client.public_key_hex
-    )
+    decrypted2 = sp.private_key.decrypt_message(event["content"], client.public_key_hex)
     parsed2 = json.loads(decrypted2)
     assert parsed2["notification"]["amount"] == 42000
     print("  PASS: encrypt/decrypt roundtrip")
