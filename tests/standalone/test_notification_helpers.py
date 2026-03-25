@@ -9,7 +9,7 @@ import sys
 import types
 from datetime import datetime, timezone
 
-PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, PROJECT_DIR)
 
 # ── Mock external dependencies BEFORE any project imports ──
