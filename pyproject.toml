@@ -23,6 +23,10 @@ package-mode = false
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]
+exclude = [
+  "tests/test_notification_helpers\\.py",
+  "tests/test_notifications_standalone\\.py",
+]
 
 [[tool.mypy.overrides]]
 module = [

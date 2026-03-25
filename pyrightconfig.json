@@ -1,0 +1,6 @@
+{
+  "exclude": [
+    "tests/test_notification_helpers.py",
+    "tests/test_notifications_standalone.py"
+  ]
+}

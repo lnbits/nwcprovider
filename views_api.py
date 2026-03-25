@@ -38,7 +38,9 @@ from .paranoia import (
 from .permission import nwc_permissions
 
 try:
-    from lnbits.extensions.lnurlp.crud import get_pay_links
+    from lnbits.extensions.lnurlp.crud import (  # type: ignore[import-not-found]
+        get_pay_links,
+    )
 except ImportError:
     get_pay_links = None
 
