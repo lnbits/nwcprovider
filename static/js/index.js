@@ -86,9 +86,7 @@ window.app = Vue.createApp({
         }
       }
 
-      const options = [
-        {label: 'All Wallets', value: 'all', count: null}
-      ]
+      const options = [{label: 'All Wallets', value: 'all', count: null}]
       for (const wallet of this.g.user.wallets) {
         options.push({
           label: wallet.name,
@@ -102,7 +100,9 @@ window.app = Vue.createApp({
       if (this.selectedWallet === 'all') {
         return this.nwcsTable.columns.map(c => c.name)
       }
-      return this.nwcsTable.columns.filter(c => c.name !== 'wallet_name').map(c => c.name)
+      return this.nwcsTable.columns
+        .filter(c => c.name !== 'wallet_name')
+        .map(c => c.name)
     }
   },
   methods: {
@@ -271,7 +271,9 @@ window.app = Vue.createApp({
             // When in "All Wallets" view, use the wallet_id from the row
             let adminkey
             if (this.selectedWallet === 'all') {
-              const wallet = this.g.user.wallets.find(w => w.id === row.wallet_id)
+              const wallet = this.g.user.wallets.find(
+                w => w.id === row.wallet_id
+              )
               if (!wallet) {
                 Quasar.Notify.create({
                   type: 'negative',
@@ -324,14 +326,11 @@ window.app = Vue.createApp({
       }
 
       try {
-        const endpoint = this.selectedWallet === 'all'
-          ? '/nwcprovider/api/v1/nwc/all?include_expired=true&calculate_spent_budget=true'
-          : '/nwcprovider/api/v1/nwc?include_expired=true&calculate_spent_budget=true'
-        const response = await LNbits.api.request(
-          'GET',
-          endpoint,
-          adminkey
-        )
+        const endpoint =
+          this.selectedWallet === 'all'
+            ? '/nwcprovider/api/v1/nwc/all?include_expired=true&calculate_spent_budget=true'
+            : '/nwcprovider/api/v1/nwc?include_expired=true&calculate_spent_budget=true'
+        const response = await LNbits.api.request('GET', endpoint, adminkey)
         this.nwcs = response.data
       } catch (error) {
         this.nwcs = []
@@ -419,7 +418,9 @@ window.app = Vue.createApp({
       }
       // Sort by wallet name when showing all wallets
       if (this.selectedWallet === 'all') {
-        newTableEntries.sort((a, b) => a.wallet_name.localeCompare(b.wallet_name))
+        newTableEntries.sort((a, b) =>
+          a.wallet_name.localeCompare(b.wallet_name)
+        )
       }
       this.nwcEntries = newTableEntries
     },

@@ -57,9 +57,21 @@
           />
         </div>
         <!-- Empty state when no connections -->
-        <div v-if="nwcEntries.length === 0" class="text-center" style="padding: 48px 24px;">
-          <q-icon name="cable" size="40px" color="grey-5" class="q-mb-md"></q-icon>
-          <div class="text-body2 text-grey-6" style="max-width: 280px; margin: 0 auto 24px; line-height: 1.5;">
+        <div
+          v-if="nwcEntries.length === 0"
+          class="text-center"
+          style="padding: 48px 24px"
+        >
+          <q-icon
+            name="cable"
+            size="40px"
+            color="grey-5"
+            class="q-mb-md"
+          ></q-icon>
+          <div
+            class="text-body2 text-grey-6"
+            style="max-width: 280px; margin: 0 auto 24px; line-height: 1.5"
+          >
             Connect apps to enable automated payments within your budget limits.
           </div>
           <q-btn
@@ -103,7 +115,7 @@
                   href="#"
                   @click.prevent="switchToWallet(props.row.wallet_id)"
                   class="text-primary cursor-pointer"
-                  style="text-decoration: none;"
+                  style="text-decoration: none"
                 >
                   <span v-text="col.value"></span>
                   <q-tooltip>Click to view this wallet</q-tooltip>
@@ -143,17 +155,22 @@
   <div class="col-12 col-md-4 col-lg-5 q-gutter-y-md">
     <q-card>
       <!-- Banner Image -->
-      <q-card-section class="q-pa-sm" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
+      <q-card-section
+        class="q-pa-sm"
+        style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)"
+      >
         <img
           src="/nwcprovider/static/image/NWC_Banner_Extension.png"
           alt="NWC Service Provider"
-          style="width: 100%; display: block; border-radius: 8px; opacity: 0.95;"
+          style="width: 100%; display: block; border-radius: 8px; opacity: 0.95"
         />
       </q-card-section>
 
       <q-card-section>
         <div class="text-h6 q-mt-none q-mb-xs">NWC Service Provider</div>
-        <div class="text-caption text-grey-6 q-mb-md">Connect your wallet to any NWC-compatible app</div>
+        <div class="text-caption text-grey-6 q-mb-md">
+          Connect your wallet to any NWC-compatible app
+        </div>
         <p class="text-body2 q-mb-sm">
           Nostr Wallet Connect (NWC) is an open protocol to connect Lightning
           wallets to apps. This extension allows you to use your LNbits wallet
@@ -162,7 +179,8 @@
             href="https://github.com/getAlby/awesome-nwc#nwc-wallets"
             target="_blank"
             class="text-primary"
-          >any NWC compatible app</a>.
+            >any NWC compatible app</a
+          >.
         </p>
         <p class="text-body2 q-mb-none">
           Before you can use this extension, you need to configure it.
@@ -170,7 +188,8 @@
             href="https://github.com/lnbits/nwcprovider#configuration"
             target="_blank"
             class="text-primary"
-          >Read the User Guide</a>
+            >Read the User Guide</a
+          >
           to get started.
         </p>
       </q-card-section>
@@ -178,40 +197,83 @@
       <q-separator />
 
       <q-card-section>
-        <div class="text-subtitle2 text-weight-medium q-mt-none q-mb-sm">Connecting a NWC App</div>
+        <div class="text-subtitle2 text-weight-medium q-mt-none q-mb-sm">
+          Connecting a NWC App
+        </div>
         <p class="text-body2 text-grey-7 q-mb-sm">
           Once configured, connect a NWC compatible app:
         </p>
         <q-list dense class="q-mx-none">
           <q-item class="q-px-none q-py-xs">
-            <q-item-section avatar style="min-width: 28px;">
-              <q-avatar size="20px" color="primary" text-color="white" class="text-caption">1</q-avatar>
+            <q-item-section avatar style="min-width: 28px">
+              <q-avatar
+                size="20px"
+                color="primary"
+                text-color="white"
+                class="text-caption"
+                >1</q-avatar
+              >
             </q-item-section>
-            <q-item-section class="text-body2">Select the wallet you want to connect</q-item-section>
+            <q-item-section class="text-body2"
+              >Select the wallet you want to connect</q-item-section
+            >
           </q-item>
           <q-item class="q-px-none q-py-xs">
-            <q-item-section avatar style="min-width: 28px;">
-              <q-avatar size="20px" color="primary" text-color="white" class="text-caption">2</q-avatar>
+            <q-item-section avatar style="min-width: 28px">
+              <q-avatar
+                size="20px"
+                color="primary"
+                text-color="white"
+                class="text-caption"
+                >2</q-avatar
+              >
             </q-item-section>
-            <q-item-section class="text-body2">Click the "+" button to add a new connection</q-item-section>
+            <q-item-section class="text-body2"
+              >Click the "+" button to add a new connection</q-item-section
+            >
           </q-item>
           <q-item class="q-px-none q-py-xs">
-            <q-item-section avatar style="min-width: 28px;">
-              <q-avatar size="20px" color="primary" text-color="white" class="text-caption">3</q-avatar>
+            <q-item-section avatar style="min-width: 28px">
+              <q-avatar
+                size="20px"
+                color="primary"
+                text-color="white"
+                class="text-caption"
+                >3</q-avatar
+              >
             </q-item-section>
-            <q-item-section class="text-body2">Set a description, expiry, permissions, and spending limits</q-item-section>
+            <q-item-section class="text-body2"
+              >Set a description, expiry, permissions, and spending
+              limits</q-item-section
+            >
           </q-item>
           <q-item class="q-px-none q-py-xs">
-            <q-item-section avatar style="min-width: 28px;">
-              <q-avatar size="20px" color="primary" text-color="white" class="text-caption">4</q-avatar>
+            <q-item-section avatar style="min-width: 28px">
+              <q-avatar
+                size="20px"
+                color="primary"
+                text-color="white"
+                class="text-caption"
+                >4</q-avatar
+              >
             </q-item-section>
-            <q-item-section class="text-body2">Click "Connect" to create the connection</q-item-section>
+            <q-item-section class="text-body2"
+              >Click "Connect" to create the connection</q-item-section
+            >
           </q-item>
           <q-item class="q-px-none q-py-xs">
-            <q-item-section avatar style="min-width: 28px;">
-              <q-avatar size="20px" color="primary" text-color="white" class="text-caption">5</q-avatar>
+            <q-item-section avatar style="min-width: 28px">
+              <q-avatar
+                size="20px"
+                color="primary"
+                text-color="white"
+                class="text-caption"
+                >5</q-avatar
+              >
             </q-item-section>
-            <q-item-section class="text-body2">Scan QR or paste URL in your app</q-item-section>
+            <q-item-section class="text-body2"
+              >Scan QR or paste URL in your app</q-item-section
+            >
           </q-item>
         </q-list>
       </q-card-section>
@@ -220,7 +282,7 @@
 
       <q-list dense>
         <q-item clickable @click="go('../docs#/NWC%20Service%20Provider')">
-          <q-item-section avatar style="min-width: 36px;">
+          <q-item-section avatar style="min-width: 36px">
             <q-icon name="api" color="primary" size="sm"></q-icon>
           </q-item-section>
           <q-item-section class="text-body2">API Documentation</q-item-section>
@@ -293,7 +355,9 @@
                   <q-tr
                     v-if="!connectionInfoDialog.data.budgets || connectionInfoDialog.data.budgets.length === 0"
                   >
-                    <q-td colspan="2" class="text-center">No spending limits</q-td>
+                    <q-td colspan="2" class="text-center"
+                      >No spending limits</q-td
+                    >
                   </q-tr>
                   <q-tr
                     v-else
@@ -361,8 +425,8 @@
       <q-card-section class="q-ma-none">
         <h3 class="q-ma-none q-mb-md text-center">Pair Connection</h3>
         <p class="q-ma-none text-center">
-          Paste the connection URL or scan the QR code in your compatible
-          app to complete the pairing.
+          Paste the connection URL or scan the QR code in your compatible app to
+          complete the pairing.
         </p>
         <p class="q-ma-none text-center text-caption">
           Connect only with an app that you trust!
