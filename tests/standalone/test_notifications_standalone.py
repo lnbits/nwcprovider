@@ -9,7 +9,9 @@ import os
 import sys
 
 # Add parent to path so we can import nwcp directly
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 # Mock lnbits modules before importing nwcp
 import types
