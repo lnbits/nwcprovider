@@ -50,8 +50,10 @@ async def check_services():
                 break
         except Exception:
             logger.info("Waiting for nostr relay @ http://localhost:7777")
-            logger.info("""Please start the required services by running\
- `bash start.sh` if you haven't already""")
+            logger.info(
+                """Please start the required services by running\
+ `bash start.sh` if you haven't already"""
+            )
             await asyncio.sleep(1)
 
     # wait lnbits @ localhost:5000
@@ -63,8 +65,10 @@ async def check_services():
                 break
         except Exception:
             logger.info("Waiting for lnbits @ http://localhost:5002")
-            logger.info("""Please start the required services by running\
- `bash start.sh` if you haven't already""")
+            logger.info(
+                """Please start the required services by running\
+ `bash start.sh` if you haven't already"""
+            )
             await asyncio.sleep(1)
 
 
