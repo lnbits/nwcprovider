@@ -4,6 +4,7 @@ import json
 import random
 import time
 from typing import Union
+from urllib.parse import unquote
 
 import bolt11
 import httpx
@@ -152,7 +153,7 @@ class NWCWallet:
         # Extract from Pairing url nostr+walletconnect://provider_pub?relay=relay&secret=secret
         self.pairing_url = pairing_url
         self.provider_pub_hex = pairing_url.split("://")[1].split("?")[0]
-        self.relay = pairing_url.split("relay=")[1].split("&")[0]
+        self.relay = unquote(pairing_url.split("relay=")[1].split("&")[0])
         self.secret = pairing_url.split("secret=")[1]
         self.ws = None
         self.connected = False
