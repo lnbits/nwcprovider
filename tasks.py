@@ -410,7 +410,13 @@ async def _on_list_transactions(
     transactions: list[dict] = []
     p: Payment
     for p in history:
-        invoice_data = bolt11_decode(p.bolt11)
+        # bolt11_decode is synchronous and CPU-bound. Running it directly inside
+        # this async handler blocks the asyncio event loop for the duration of
+        # the whole batch, long enough that NWC clients hit their reply timeout
+        # and other extensions (nostrclient relay keep-alives, publishes,
+        # concurrent requests) are starved. Offload to a worker thread so the
+        # event loop stays responsive.
+        invoice_data = await asyncio.to_thread(bolt11_decode, p.bolt11)
         is_settled = not p.pending
         timestamp = int(p.time.timestamp()) or invoice_data.date
         transactions.append(
