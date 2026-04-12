@@ -24,7 +24,7 @@ This is the easiest option for most users. It allows you to run LNbits on a priv
 
 1. Choose a Nostr relay that supports NWC connections.
 2. Navigate to the **NWC Service Provider admin page** at `/nwcprovider/admin` (requires LNbits admin privileges).
-   1. Enter your chosen relay URL in the **Nostr Relay URL** field (e.g. `wss://relay.damus.io`).
+   1. Enter your chosen relay URL in the **Nostr Relay URL** field (e.g. `wss://relay.nostrconnect.com`).
    2. Click **Save**.
 
 ### Option 2: Use the LNbits Nostrclient extension
