@@ -23,8 +23,8 @@ Before you can start using the extension, you need to configure a Nostr relay.
 This is the easiest option for most users. It allows you to run LNbits on a private network while connecting to NWC apps through a public Nostr relay.
 
 1. Choose a Nostr relay that supports NWC connections.
-2. Open the **NWC Service Provider settings** (gear icon in the top-right corner).
-   1. Enter your chosen relay URL in the **Nostr Relay URL** field (e.g. `wss://relay.nostrconnect.com`).
+2. Navigate to the **NWC Service Provider admin page** at `/nwcprovider/admin` (requires LNbits admin privileges).
+   1. Enter your chosen relay URL in the **Nostr Relay URL** field (e.g. `wss://relay.damus.io`).
    2. Click **Save**.
 
 ### Option 2: Use the LNbits Nostrclient extension
@@ -50,7 +50,7 @@ This is the easiest option for most users. It allows you to run LNbits on a priv
 
 # Extension Configuration
 
-The "Configuration" page of the NWC Service Provider extension can be accessed by clicking the gear icon in the top-right corner of the extension page.
+The configuration page of the NWC Service Provider extension is available at `/nwcprovider/admin` and requires LNbits admin privileges.
 
 ### Configuration Options:
 
