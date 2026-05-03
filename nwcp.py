@@ -508,10 +508,37 @@ class NWCServiceProvider:
                 logger.info("Notice from relay " + self.relay + ": " + str(msg[1]))
             elif msg[0] == "OK":
                 pass
+            elif msg[0] == "AUTH":
+                await self._on_auth_message(msg)
             else:
                 raise Exception("Unknown message type " + str(msg[0]))
         except Exception as e:
             logger.error("Error parsing event: " + str(e))
+
+    async def _on_auth_message(self, msg: list) -> None:
+        """
+        Handle NIP-42 AUTH challenge from the relay (NIP-42).
+
+        When a relay sends ["AUTH", "<challenge>"], we respond with a signed
+        kind-22242 event containing the relay URL and challenge string.
+        See: https://github.com/nostr-protocol/nips/blob/master/42.md
+        """
+        if len(msg) < 2:
+            logger.warning("Received AUTH message without challenge, ignoring")
+            return
+        challenge = msg[1]
+        auth_event: dict = {
+            "kind": 22242,
+            "content": "",
+            "created_at": int(time.time()),
+            "tags": [
+                ["relay", self.relay],
+                ["challenge", challenge],
+            ],
+        }
+        self._sign_event(auth_event)
+        await self._send(["AUTH", auth_event])
+        logger.debug("Sent NIP-42 AUTH response for challenge: " + str(challenge))
 
     async def _connect_to_relay(self):
         """
