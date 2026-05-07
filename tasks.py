@@ -110,9 +110,12 @@ async def _process_invoice(
         True  # currently required by nip 47 specs, might change in future
     )
     payment_status: PaymentStatus | None = None
+    deadline = time.monotonic() + 300
     while wait_for_preimage:
         payment_status = await check_transaction_status(wallet_id, payment_hash)
-        if payment_status.success:
+        if payment_status.success or payment_status.failed:
+            break
+        if time.monotonic() > deadline:
             break
         await asyncio.sleep(0.05)
     if not payment_status:
