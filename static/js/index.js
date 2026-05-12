@@ -202,14 +202,17 @@ window.app = Vue.createApp({
       try {
         const response = await LNbits.api.request(
           'GET',
-          '/nwcprovider/api/v1/lnaddresses',
+          '/lnurlp/api/v1/links',
           wallet.adminkey
         )
         if (response.data && response.data.length > 0) {
-          this.lud16OptionsAll = response.data.map(addr => ({
-            label: addr.description || addr.username,
-            value: addr.address
-          }))
+          const host = window.location.host
+          this.lud16OptionsAll = response.data
+            .filter(link => link.username)
+            .map(link => ({
+              label: link.description || link.username,
+              value: `${link.username}@${host}`
+            }))
         } else {
           this.lud16OptionsAll = []
         }

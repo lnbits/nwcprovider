@@ -6,7 +6,6 @@ from fastapi.responses import JSONResponse
 from lnbits.core.crud import get_wallets
 from lnbits.core.models import WalletTypeInfo
 from lnbits.decorators import check_admin, require_admin_key
-from loguru import logger
 from pynostr.key import PrivateKey
 
 from .crud import (
@@ -36,13 +35,6 @@ from .paranoia import (
     assert_valid_wallet_id,
 )
 from .permission import nwc_permissions
-
-try:
-    from lnbits.extensions.lnurlp.crud import (  # type: ignore[import-not-found]
-        get_pay_links,
-    )
-except ImportError:
-    get_pay_links = None
 
 nwcprovider_api_router = APIRouter()
 
@@ -273,44 +265,3 @@ async def api_set_config_nwc(req: Request):
     for key, value in data.items():
         await set_config_nwc(key, value)
     return await api_get_all_config_nwc()
-
-
-# Get available lightning addresses from lnurlp extension
-@nwcprovider_api_router.get("/api/v1/lnaddresses")
-async def api_get_lightning_addresses(
-    req: Request,
-    wallet: WalletTypeInfo = Depends(require_admin_key),
-) -> list[dict]:
-    """
-    Fetch available lightning addresses from lnurlp extension for this wallet.
-    Returns list of {address, username, description} for dropdown selection.
-    """
-    wallet_id = wallet.wallet.id
-
-    # hardening #
-    assert_valid_wallet_id(wallet_id)
-    # ## #
-
-    if get_pay_links is None:
-        logger.warning("lnurlp extension not available for lightning address lookup")
-        return []
-
-    try:
-        pay_links = await get_pay_links([wallet_id])
-        domain = req.url.netloc
-
-        addresses = []
-        for link in pay_links:
-            if link.username:
-                addresses.append(
-                    {
-                        "address": f"{link.username}@{domain}",
-                        "username": link.username,
-                        "description": link.description or "",
-                    }
-                )
-
-        return addresses
-    except Exception as e:
-        logger.error(f"Error fetching lightning addresses: {e}")
-        return []
