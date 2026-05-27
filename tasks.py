@@ -425,7 +425,20 @@ async def _on_list_transactions(
             {
                 "type": "outgoing" if p.is_out else "incoming",
                 "invoice": p.bolt11,
-                "description": invoice_data.description,
+                # Fallback chain so a human-readable description reaches
+                # the NWC client even for LNURL-pay payments (where the
+                # BOLT11 description is just a SHA-256 hash, not text):
+                #   1. `extra.comment` — LUD-12 payer-supplied message
+                #   2. `invoice_data.description` — BOLT11 description
+                #      when it carries the actual text rather than a hash
+                #   3. `p.memo` — Pay Link item description / generic memo
+                # Mirrors what `_on_lookup_invoice` already does, plus the
+                # LUD-12 source. See #42.
+                "description": (
+                    (p.extra or {}).get("comment")
+                    or invoice_data.description
+                    or p.memo
+                ),
                 "description_hash": invoice_data.description_hash,
                 "preimage": p.preimage if is_settled or p.is_in else None,
                 "payment_hash": p.payment_hash,
