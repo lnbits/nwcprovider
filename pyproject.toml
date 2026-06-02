@@ -23,6 +23,9 @@ package-mode = false
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]
+exclude = [
+  "tests/standalone/",
+]
 
 [[tool.mypy.overrides]]
 module = [
