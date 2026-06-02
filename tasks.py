@@ -114,6 +114,14 @@ async def _process_invoice(
         payment_status = await check_transaction_status(wallet_id, payment_hash)
         if payment_status.success:
             break
+        if payment_status.failed:
+            return {
+                "error": {
+                    "code": "PAYMENT_FAILED",
+                    "message": "Payment failed.",
+                },
+                "in_budget": in_budget,
+            }
         await asyncio.sleep(0.05)
     if not payment_status:
         raise Exception("Payment status not found")
@@ -417,7 +425,13 @@ async def _on_list_transactions(
             {
                 "type": "outgoing" if p.is_out else "incoming",
                 "invoice": p.bolt11,
-                "description": invoice_data.description,
+                # Fallback chain so a human-readable description reaches
+                # the NWC client. Mirror of `_on_lookup_invoice` 
+                "description": (
+                    (p.extra or {}).get("comment")
+                    or invoice_data.description
+                    or p.memo
+                ),
                 "description_hash": invoice_data.description_hash,
                 "preimage": p.preimage if is_settled or p.is_in else None,
                 "payment_hash": p.payment_hash,
