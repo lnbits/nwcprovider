@@ -16,10 +16,21 @@
           dense
           emit-value
           map-options
-          :options="g.user.walletOptions"
+          :options="walletOptions"
           label="Wallet *"
           class="col"
-        ></q-select>
+        >
+          <template v-slot:option="scope">
+            <q-item v-bind="scope.itemProps">
+              <q-item-section>
+                <q-item-label v-text="scope.opt.label"></q-item-label>
+              </q-item-section>
+              <q-item-section side v-if="scope.opt.count !== null">
+                <q-badge color="primary" :label="scope.opt.count" rounded />
+              </q-item-section>
+            </q-item>
+          </template>
+        </q-select>
         <q-btn
           v-if="this.g.user.admin"
           @click="go('/nwcprovider/admin')"
@@ -45,29 +56,74 @@
             round
           />
         </div>
+        <!-- Empty state when no connections -->
+        <div
+          v-if="nwcEntries.length === 0"
+          class="text-center"
+          style="padding: 48px 24px"
+        >
+          <q-icon
+            name="cable"
+            size="40px"
+            color="grey-5"
+            class="q-mb-md"
+          ></q-icon>
+          <div
+            class="text-body2 text-grey-6"
+            style="max-width: 280px; margin: 0 auto 24px; line-height: 1.5"
+          >
+            Connect apps to enable automated payments within your budget limits.
+          </div>
+          <q-btn
+            @click="showConnectDialog()"
+            icon="add"
+            color="primary"
+            label="Connect App"
+            unelevated
+          />
+        </div>
+
+        <!-- Table shown when there are connections -->
         <q-table
+          v-else
           dense
           flat
           :rows="nwcEntries"
           row-key="id"
           :columns="nwcsTable.columns"
+          :visible-columns="visibleColumns"
           v-model:pagination="nwcsTable.pagination"
         >
-          <nwcprovider v-slot:header="props">
+          <template v-slot:header="props">
             <q-tr :props="props">
-              <q-th v-for="col in props.cols" :key="col.name" :props="props">
-                ${ col.label }
-              </q-th>
+              <q-th
+                v-for="col in props.cols"
+                :key="col.name"
+                :props="props"
+                v-text="col.label"
+              ></q-th>
+              <q-th auto-width></q-th>
             </q-tr>
-          </nwcprovider>
+          </template>
 
           <template v-slot:body="props">
             <q-tr :props="props">
               <q-td v-for="col in props.cols" :key="col.name" :props="props">
-                <div>${ col.value }</div>
+                <!-- Clickable wallet name to switch to that wallet -->
+                <a
+                  v-if="col.name === 'wallet_name' && props.row.wallet_id"
+                  href="#"
+                  @click.prevent="switchToWallet(props.row.wallet_id)"
+                  class="text-primary cursor-pointer"
+                  style="text-decoration: none"
+                >
+                  <span v-text="col.value"></span>
+                  <q-tooltip>Click to view this wallet</q-tooltip>
+                </a>
+                <div v-else v-text="col.value"></div>
               </q-td>
 
-              <q-td>
+              <q-td auto-width>
                 <q-btn
                   flat
                   dense
@@ -82,7 +138,7 @@
                   flat
                   dense
                   size="xs"
-                  @click="deleteNWC(props.row.pubkey)"
+                  @click="deleteNWC(props.row)"
                   icon="cancel"
                   color="pink"
                 >
@@ -98,65 +154,143 @@
 
   <div class="col-12 col-md-4 col-lg-5 q-gutter-y-md">
     <q-card>
+      <!-- Banner Image -->
+      <q-card-section
+        class="q-pa-sm"
+        style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)"
+      >
+        <img
+          src="/nwcprovider/static/image/NWC_Banner_Extension.png"
+          alt="NWC Service Provider"
+          style="width: 100%; display: block; border-radius: 8px; opacity: 0.95"
+        />
+      </q-card-section>
+
       <q-card-section>
-        <h6 class="text-subtitle1 q-my-none">NWC Service Provider</h6>
-        <p>
+        <div class="text-h6 q-mt-none q-mb-xs">NWC Service Provider</div>
+        <div class="text-caption text-grey-6 q-mb-md">
+          Connect your wallet to any NWC-compatible app
+        </div>
+        <p class="text-body2 q-mb-sm">
           Nostr Wallet Connect (NWC) is an open protocol to connect Lightning
           wallets to apps. This extension allows you to use your LNbits wallet
           with
           <a
             href="https://github.com/getAlby/awesome-nwc#nwc-wallets"
-            title="NWC wallets"
             target="_blank"
+            class="text-primary"
             >any NWC compatible app</a
           >.
         </p>
-        <p>
+        <p class="text-body2 q-mb-none">
           Before you can use this extension, you need to configure it.
           <a
             href="https://github.com/lnbits/nwcprovider#configuration"
-            title="NWC Service Provider User Guide"
             target="_blank"
+            class="text-primary"
             >Read the User Guide</a
           >
           to get started.
         </p>
-
-        <h6 class="text-subtitle2 q-my-none">Connecting a NWC App</h6>
-        <p>
-          Once you have configured the extension, you can connect a NWC
-          compatible app by following these steps:
-        </p>
-        <ol class="q-pl-md q-mt-sm">
-          <li class="q-mb-sm">
-            In the <strong>NWC Service Provider</strong> extension, select the
-            wallet you want to connect.
-          </li>
-          <li class="q-mb-sm">Click the "+" button to add a new connection.</li>
-          <li class="q-mb-sm">
-            Enter a description, expiry date (optional), permissions, and
-            limits.
-          </li>
-          <li class="q-mb-sm">Click "Connect" to create the connection.</li>
-          <li class="q-mb-sm">
-            Use the generated pairing URL or QR code to connect your chosen app.
-          </li>
-        </ol>
       </q-card-section>
 
-      <q-card-section class="q-pa-none">
-        <q-separator></q-separator>
-        <q-list>
-          <q-item
-            clickable
-            @click="go('../docs#/NWC%20Service%20Provider')"
-            class="q-flex items-center justify-between"
-          >
-            <q-icon name="swap_vertical_circle" class="q-mr-md"></q-icon>
-            <q-item-section>Swagger API</q-item-section>
+      <q-separator />
+
+      <q-card-section>
+        <div class="text-subtitle2 text-weight-medium q-mt-none q-mb-sm">
+          Connecting a NWC App
+        </div>
+        <p class="text-body2 text-grey-7 q-mb-sm">
+          Once configured, connect a NWC compatible app:
+        </p>
+        <q-list dense class="q-mx-none">
+          <q-item class="q-px-none q-py-xs">
+            <q-item-section avatar style="min-width: 28px">
+              <q-avatar
+                size="20px"
+                color="primary"
+                text-color="white"
+                class="text-caption"
+                >1</q-avatar
+              >
+            </q-item-section>
+            <q-item-section class="text-body2"
+              >Select the wallet you want to connect</q-item-section
+            >
+          </q-item>
+          <q-item class="q-px-none q-py-xs">
+            <q-item-section avatar style="min-width: 28px">
+              <q-avatar
+                size="20px"
+                color="primary"
+                text-color="white"
+                class="text-caption"
+                >2</q-avatar
+              >
+            </q-item-section>
+            <q-item-section class="text-body2"
+              >Click the "+" button to add a new connection</q-item-section
+            >
+          </q-item>
+          <q-item class="q-px-none q-py-xs">
+            <q-item-section avatar style="min-width: 28px">
+              <q-avatar
+                size="20px"
+                color="primary"
+                text-color="white"
+                class="text-caption"
+                >3</q-avatar
+              >
+            </q-item-section>
+            <q-item-section class="text-body2"
+              >Set a description, expiry, permissions, and spending
+              limits</q-item-section
+            >
+          </q-item>
+          <q-item class="q-px-none q-py-xs">
+            <q-item-section avatar style="min-width: 28px">
+              <q-avatar
+                size="20px"
+                color="primary"
+                text-color="white"
+                class="text-caption"
+                >4</q-avatar
+              >
+            </q-item-section>
+            <q-item-section class="text-body2"
+              >Click "Connect" to create the connection</q-item-section
+            >
+          </q-item>
+          <q-item class="q-px-none q-py-xs">
+            <q-item-section avatar style="min-width: 28px">
+              <q-avatar
+                size="20px"
+                color="primary"
+                text-color="white"
+                class="text-caption"
+                >5</q-avatar
+              >
+            </q-item-section>
+            <q-item-section class="text-body2"
+              >Scan QR or paste URL in your app</q-item-section
+            >
           </q-item>
         </q-list>
       </q-card-section>
+
+      <q-separator />
+
+      <q-list dense>
+        <q-item clickable @click="go('../docs#/NWC%20Service%20Provider')">
+          <q-item-section avatar style="min-width: 36px">
+            <q-icon name="api" color="primary" size="sm"></q-icon>
+          </q-item-section>
+          <q-item-section class="text-body2">API Documentation</q-item-section>
+          <q-item-section side>
+            <q-icon name="chevron_right" color="grey" size="sm"></q-icon>
+          </q-item-section>
+        </q-item>
+      </q-list>
     </q-card>
   </div>
 
@@ -166,38 +300,43 @@
   >
     <q-card class="q-pa-lg q-pt-xl" style="width: 500px">
       <q-card-section class="q-ma-none">
-        <h3 class="q-ma-none q-mb-md text-center">Info</h3>
+        <h3 class="q-ma-none q-mb-md text-center">Connection Details</h3>
         <q-list>
           <q-item>
             <q-item-section>Description</q-item-section>
-            <q-item-section side
-              >${connectionInfoDialog.data.description}</q-item-section
-            >
+            <q-item-section
+              side
+              v-text="connectionInfoDialog.data.description"
+            ></q-item-section>
           </q-item>
           <q-item>
             <q-item-section>Last used</q-item-section>
-            <q-item-section side
-              >${connectionInfoDialog.data.last_used}</q-item-section
-            >
+            <q-item-section
+              side
+              v-text="connectionInfoDialog.data.last_used"
+            ></q-item-section>
           </q-item>
           <q-item>
             <q-item-section>Expires</q-item-section>
-            <q-item-section side
-              >${connectionInfoDialog.data.expires_at}</q-item-section
-            >
+            <q-item-section
+              side
+              v-text="connectionInfoDialog.data.expires_at"
+            ></q-item-section>
           </q-item>
           <q-item>
             <q-item-section>Created</q-item-section>
-            <q-item-section side
-              >${connectionInfoDialog.data.created_at}</q-item-section
-            >
+            <q-item-section
+              side
+              v-text="connectionInfoDialog.data.created_at"
+            ></q-item-section>
           </q-item>
 
           <q-item>
             <q-item-section>Permissions</q-item-section>
-            <q-item-section side>
-              ${connectionInfoDialog.data.permissions}
-            </q-item-section>
+            <q-item-section
+              side
+              v-text="connectionInfoDialog.data.permissions"
+            ></q-item-section>
           </q-item>
           <q-item>
             <q-item-section
@@ -216,16 +355,22 @@
                   <q-tr
                     v-if="!connectionInfoDialog.data.budgets || connectionInfoDialog.data.budgets.length === 0"
                   >
-                    <q-td colspan="2" class="text-center">No limits</q-td>
+                    <q-td colspan="2" class="text-center"
+                      >No spending limits</q-td
+                    >
                   </q-tr>
                   <q-tr
                     v-else
                     v-for="budget in connectionInfoDialog.data.budgets"
                   >
-                    <q-td class="text-center"
-                      >${budget.used_budget_sats} / ${budget.budget_sats}</q-td
-                    >
-                    <q-td class="text-center">${budget.refresh_window}</q-td>
+                    <q-td
+                      class="text-center"
+                      v-text="budget.used_budget_sats + ' / ' + budget.budget_sats"
+                    ></q-td>
+                    <q-td
+                      class="text-center"
+                      v-text="budget.refresh_window"
+                    ></q-td>
                   </q-tr>
                 </tbody>
               </q-markup-table>
@@ -257,10 +402,10 @@
       </q-card-section>
       <q-card-section class="q-ma-none">
         <p class="q-ma-none text-center">
-          Please scan this QR code with a supported app
+          Scan this QR code with your compatible app
         </p>
         <p class="q-ma-none text-center text-caption">
-          Connect only with app you trust!
+          Connect only with an app that you trust!
         </p>
       </q-card-section>
       <q-card-actions>
@@ -278,14 +423,13 @@
   <q-dialog v-model="pairingDialog.show" @hide="closePairingDialog">
     <q-card class="q-pa-lg q-pt-xl" style="width: 500px">
       <q-card-section class="q-ma-none">
-        <h3 class="q-ma-none q-mb-md text-center">Pairing</h3>
+        <h3 class="q-ma-none q-mb-md text-center">Pair Connection</h3>
         <p class="q-ma-none text-center">
-          Complete the last step of the setup by pasting or scanning your
-          connection's pairing secret in the desired app to finalise the
-          connection.
+          Paste the connection URL or scan the QR code in your compatible app to
+          complete the pairing.
         </p>
         <p class="q-ma-none text-center text-caption">
-          Connect only with app you trust!
+          Connect only with an app that you trust!
         </p>
       </q-card-section>
       <q-card-actions>
@@ -337,21 +481,104 @@
 
   <q-dialog v-model="connectDialog.show" @hide="closeConnectDialog">
     <q-card class="q-pa-lg q-pt-xl" style="width: 500px">
-      <h3 class="q-ma-none q-mb-xl text-center">Add connection</h3>
+      <h3 class="q-ma-none q-mb-xl text-center">New Connection</h3>
 
       <q-form @submit="confirmConnectDialog" class="q-gutter-md">
+        <!-- Wallet picker shown when "All Wallets" is selected -->
+        <q-select
+          v-if="selectedWallet === 'all'"
+          v-model="dialogWallet"
+          filled
+          dense
+          emit-value
+          map-options
+          :options="g.user.wallets.map(w => ({label: w.name, value: w.id}))"
+          label="Wallet *"
+        ></q-select>
         <q-input
           v-model="connectDialog.data.description"
           filled
           dense
           label="Description"
         ></q-input>
+        <!-- Lightning Address: Simple input with optional dropdown -->
+        <q-input
+          v-model="connectDialog.data.lud16"
+          filled
+          dense
+          label="Lightning Address (optional)"
+          hint="Attach a lightning address to this connection so apps can display it as your receiving address"
+          placeholder="Enter or select lightning address"
+        >
+          <template v-slot:append>
+            <q-btn
+              v-if="connectDialog.data.lud16"
+              flat
+              dense
+              round
+              icon="close"
+              size="sm"
+              @click="connectDialog.data.lud16 = ''"
+            >
+              <q-tooltip>Clear</q-tooltip>
+            </q-btn>
+            <q-btn
+              flat
+              dense
+              round
+              icon="expand_more"
+              size="sm"
+              :loading="lud16Loading"
+            >
+              <q-tooltip>Select address (lud16) from Paylinks</q-tooltip>
+              <q-menu>
+                <q-list style="min-width: 280px">
+                  <q-item-label header
+                    >Select Lightning Address from Paylinks
+                    extension</q-item-label
+                  >
+                  <q-item v-if="lud16OptionsAll.length === 0">
+                    <q-item-section>
+                      <div class="text-center q-py-md">
+                        <q-icon
+                          name="inbox"
+                          size="32px"
+                          color="grey-5"
+                          class="q-mb-sm"
+                        ></q-icon>
+                        <div class="text-grey-7 text-body2">
+                          No addresses available
+                        </div>
+                        <div class="text-grey-5 text-caption q-mt-xs">
+                          Create one in the Paylinks extension<br />or enter an
+                          address manually
+                        </div>
+                      </div>
+                    </q-item-section>
+                  </q-item>
+                  <q-item
+                    v-for="opt in lud16OptionsAll"
+                    :key="opt.value"
+                    clickable
+                    v-ripple
+                    v-close-popup
+                    @click="connectDialog.data.lud16 = opt.value"
+                  >
+                    <q-item-section>
+                      <q-item-label v-text="opt.label"></q-item-label>
+                      <q-item-label caption v-text="opt.value"></q-item-label>
+                    </q-item-section>
+                  </q-item>
+                </q-list>
+              </q-menu>
+            </q-btn>
+          </template>
+        </q-input>
         <div class="row">
           <q-input
             :disable="connectDialog.data.neverExpires"
             v-model="connectDialog.data.expires_at"
             class="col"
-            v-model="connectDialog.data.expires_at"
             filled
             dense
             label="Expires at"
@@ -360,13 +587,12 @@
           <q-checkbox
             v-model="connectDialog.data.neverExpires"
             class="col-auto"
-            v-model="connectDialog.data.neverExpires"
             label="Never"
           ></q-checkbox>
         </div>
         <q-list dense bordered padding>
           <q-item>
-            <q-item-label header>Authorize the app to</q-item-label>
+            <q-item-label header>Authorize the connected app to</q-item-label>
           </q-item>
           <q-item v-for="permission in connectDialog.data.permissions">
             <q-checkbox
@@ -377,13 +603,13 @@
         </q-list>
         <q-list dense bordered padding>
           <q-item>
-            <q-item-label header>Limit the spendable amount</q-item-label>
+            <q-item-label header>Set a spending limit</q-item-label>
           </q-item>
           <q-item
             v-if="!connectDialog.data.budgets || connectDialog.data.budgets.length === 0"
           >
             <q-item-section class="full-width text-center"
-              >No limit</q-item-section
+              >No spending limit</q-item-section
             >
           </q-item>
           <template v-else>
@@ -407,9 +633,9 @@
                     {label: 'Weekly', value: 'Weekly'},
                     {label: 'Monthly', value: 'Monthly'},
                     {label: 'Yearly', value: 'Yearly'},
-                    {label: 'Never', value: 'Never'}
+                    {label: 'One-time', value: 'Never'}
                   ]"
-                  label="Expires"
+                  label="Resets"
                   v-model="budget.expiry"
                 ></q-select>
               </q-item-section>

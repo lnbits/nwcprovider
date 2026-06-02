@@ -352,8 +352,12 @@ async def _on_lookup_invoice(
     res: dict = {
         "type": "outgoing" if payment.is_out else "incoming",
         "invoice": payment.bolt11,
+        # Fallback chain so a human-readable description reaches the
+        # NWC client. Mirror of _on_list_transactions.
         "description": (
-            invoice_data.description if invoice_data.description else payment.memo
+            (payment.extra or {}).get("comment")
+            or invoice_data.description
+            or payment.memo
         ),
         "preimage": preimage if is_settled or payment.is_in else None,
         "payment_hash": payment.payment_hash,
@@ -425,12 +429,10 @@ async def _on_list_transactions(
             {
                 "type": "outgoing" if p.is_out else "incoming",
                 "invoice": p.bolt11,
-                # Fallback chain so a human-readable description reaches
-                # the NWC client. Mirror of `_on_lookup_invoice` 
+                # Fallback chain so a human-readable description reaches the
+                # NWC client. Mirror of _on_lookup_invoice.
                 "description": (
-                    (p.extra or {}).get("comment")
-                    or invoice_data.description
-                    or p.memo
+                    (p.extra or {}).get("comment") or invoice_data.description or p.memo
                 ),
                 "description_hash": invoice_data.description_hash,
                 "preimage": p.preimage if is_settled or p.is_in else None,
