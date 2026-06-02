@@ -507,13 +507,46 @@ class NWCServiceProvider:
                 # A message from the relay, mostly useless, but we log it anyway
                 logger.info("Notice from relay " + self.relay + ": " + str(msg[1]))
             elif msg[0] == "OK":
-                pass
+                await self._on_ok_message(msg)
             elif msg[0] == "AUTH":
                 await self._on_auth_message(msg)
             else:
                 raise Exception("Unknown message type " + str(msg[0]))
         except Exception as e:
             logger.error("Error parsing event: " + str(e))
+
+    async def _on_ok_message(self, msg: list) -> None:
+        """Handle relay OK messages and surface rejections for diagnostics."""
+        event_id = str(msg[1]) if len(msg) > 1 else "unknown"
+        accepted = msg[2] if len(msg) > 2 else None
+        relay_msg = str(msg[3]) if len(msg) > 3 else ""
+
+        if accepted is False:
+            logger.warning(
+                "Relay "
+                + self.relay
+                + " rejected event "
+                + event_id
+                + (": " + relay_msg if relay_msg else "")
+            )
+            return
+
+        if accepted is True:
+            logger.debug(
+                "Relay "
+                + self.relay
+                + " accepted event "
+                + event_id
+                + (": " + relay_msg if relay_msg else "")
+            )
+            return
+
+        logger.debug(
+            "Received malformed OK message from relay "
+            + self.relay
+            + ": "
+            + str(msg)
+        )
 
     async def _on_auth_message(self, msg: list) -> None:
         """
