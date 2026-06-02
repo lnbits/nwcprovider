@@ -86,8 +86,11 @@ def _build_transaction_data(payment: Payment) -> dict:
         "type": "outgoing" if payment.is_out else "incoming",
         "state": state,
         "invoice": payment.bolt11,
+        # Fallback chain so a human-readable description reaches the NWC client.
         "description": (
-            payment.extra.get("comment") or payment.memo or invoice_data.description
+            (payment.extra or {}).get("comment")
+            or invoice_data.description
+            or payment.memo
         ),
         "preimage": preimage if is_settled or payment.is_in else None,
         "payment_hash": payment.payment_hash,
@@ -190,6 +193,14 @@ async def _process_invoice(
         payment_status = await check_transaction_status(wallet_id, payment_hash)
         if payment_status and payment_status.success:
             break
+        if payment_status.failed:
+            return {
+                "error": {
+                    "code": "PAYMENT_FAILED",
+                    "message": "Payment failed.",
+                },
+                "in_budget": in_budget,
+            }
         await asyncio.sleep(0.05)
     if not payment_status:
         raise Exception("Payment status not found")
