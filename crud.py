@@ -18,6 +18,7 @@ from .models import (
 from .paranoia import (
     assert_sane_string,
     assert_valid_expiration_seconds,
+    assert_valid_lud16,
     assert_valid_msats,
     assert_valid_positive_int,
     assert_valid_pubkey,
@@ -35,6 +36,8 @@ async def create_nwc(data: CreateNWCKey) -> NWCKey:
     assert_valid_wallet_id(data.wallet)
     assert_sane_string(data.description)
     assert_valid_expiration_seconds(data.expires_at)
+    if data.lud16:
+        assert_valid_lud16(data.lud16)
     for permission in data.permissions:
         assert_sane_string(permission)
 

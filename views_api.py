@@ -31,6 +31,7 @@ from .models import (
 from .paranoia import (
     assert_boolean,
     assert_sane_string,
+    assert_valid_lud16,
     assert_valid_pubkey,
     assert_valid_wallet_id,
 )
@@ -147,7 +148,7 @@ async def api_get_pairing_url(
     # hardening #
     assert_sane_string(secret)
     if lud16:
-        assert_sane_string(lud16)
+        assert_valid_lud16(lud16)
     # ## #
 
     pprivkey: str | None = await get_config_nwc("provider_key")

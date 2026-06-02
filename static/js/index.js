@@ -435,12 +435,17 @@ window.app = Vue.createApp({
       return lud16 && lud16.trim() ? lud16.trim() : null
     },
     async showPairingDialog(secret, lud16) {
-      let url = `/nwcprovider/api/v1/pairing/${secret}`
+      // Request the pairing url with a placeholder and substitute the secret
+      // locally, so the connection secret is never sent to the server.
+      let url = '/nwcprovider/api/v1/pairing/{SECRET}'
       if (lud16) {
         url += `?lud16=${encodeURIComponent(lud16)}`
       }
-      let response = await LNbits.api.request('GET', url)
-      this.pairingDialog.data.pairingUrl = response.data
+      const response = await LNbits.api.request('GET', url)
+      this.pairingDialog.data.pairingUrl = response.data.replace(
+        '{SECRET}',
+        secret
+      )
       this.pairingDialog.show = true
     },
     async confirmConnectDialog() {
