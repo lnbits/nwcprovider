@@ -114,6 +114,14 @@ async def _process_invoice(
         payment_status = await check_transaction_status(wallet_id, payment_hash)
         if payment_status.success:
             break
+        if payment_status.failed:
+            return {
+                "error": {
+                    "code": "PAYMENT_FAILED",
+                    "message": "Payment failed.",
+                },
+                "in_budget": in_budget,
+            }
         await asyncio.sleep(0.05)
     if not payment_status:
         raise Exception("Payment status not found")
@@ -344,9 +352,12 @@ async def _on_lookup_invoice(
     res: dict = {
         "type": "outgoing" if payment.is_out else "incoming",
         "invoice": payment.bolt11,
-        # Priority: LNURL comment > memo > invoice description
+        # Fallback chain so a human-readable description reaches the
+        # NWC client. Mirror of _on_list_transactions.
         "description": (
-            payment.extra.get("comment") or payment.memo or invoice_data.description
+            (payment.extra or {}).get("comment")
+            or invoice_data.description
+            or payment.memo
         ),
         "preimage": preimage if is_settled or payment.is_in else None,
         "payment_hash": payment.payment_hash,
@@ -414,13 +425,15 @@ async def _on_list_transactions(
         invoice_data = bolt11_decode(p.bolt11)
         is_settled = not p.pending
         timestamp = int(p.time.timestamp()) or invoice_data.date
-        # Priority: LNURL comment > memo > invoice description
-        description = p.extra.get("comment") or p.memo or invoice_data.description
         transactions.append(
             {
                 "type": "outgoing" if p.is_out else "incoming",
                 "invoice": p.bolt11,
-                "description": description,
+                # Fallback chain so a human-readable description reaches the
+                # NWC client. Mirror of _on_lookup_invoice.
+                "description": (
+                    (p.extra or {}).get("comment") or invoice_data.description or p.memo
+                ),
                 "description_hash": invoice_data.description_hash,
                 "preimage": p.preimage if is_settled or p.is_in else None,
                 "payment_hash": p.payment_hash,
