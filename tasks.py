@@ -363,8 +363,10 @@ async def _on_lookup_invoice(
         "created_at": timestamp,
         "expires_at": expiry,
         "settled_at": timestamp if is_settled else None,
+        "state": "settled" if is_settled else "pending",
         "metadata": {},
     }
+
     if invoice_data.description_hash:
         res["description_hash"] = invoice_data.description_hash
     # await log_nwc(pubkey, payload)
@@ -438,6 +440,7 @@ async def _on_list_transactions(
                 "fees_paid": p.fee,
                 "created_at": timestamp,
                 "settled_at": timestamp if is_settled else None,
+                "state": "settled" if is_settled else "pending",
                 "metadata": {},
             }
         )
