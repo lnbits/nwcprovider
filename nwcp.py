@@ -1,17 +1,105 @@
 import asyncio
+import base64
 import hashlib
+import hmac
 import json
+import math
 import random
+import secrets
 import time
 from collections.abc import Awaitable, Callable
 from typing import Any, Union
 
 from coincurve import PublicKeyXOnly
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+from cryptography.hazmat.primitives.kdf.hkdf import HKDFExpand
 from lnbits.helpers import encrypt_internal_message
 from lnbits.settings import settings
 from loguru import logger
 from pynostr.key import PrivateKey
 from websockets.legacy.client import connect
+
+NIP44_V2 = "nip44_v2"
+NIP04 = "nip04"
+SUPPORTED_ENCRYPTIONS = [NIP44_V2, NIP04]
+NIP44_V2_SALT = b"nip44-v2"
+NIP44_V2_MIN_PAYLOAD_SIZE = 132
+NIP44_V2_MIN_DECODED_SIZE = 99
+NIP44_V2_EXTENDED_PREFIX_THRESHOLD = 65536
+NIP44_V2_MAX_PLAINTEXT_SIZE = 2**32 - 1
+
+
+def _nip44_v2_hkdf_extract(ikm: bytes) -> bytes:
+    return hmac.new(NIP44_V2_SALT, ikm, hashlib.sha256).digest()
+
+
+def _nip44_v2_calc_padded_len(unpadded_len: int) -> int:
+    if unpadded_len <= 32:
+        return 32
+    next_power = 1 << math.floor(math.log2(unpadded_len - 1) + 1)
+    chunk = 32 if next_power <= 256 else next_power // 8
+    return chunk * (math.floor((unpadded_len - 1) / chunk) + 1)
+
+
+def _nip44_v2_pad(plaintext: str) -> bytes:
+    unpadded = plaintext.encode()
+    unpadded_len = len(unpadded)
+    if unpadded_len < 1 or unpadded_len > NIP44_V2_MAX_PLAINTEXT_SIZE:
+        raise ValueError("invalid plaintext length")
+    if unpadded_len >= NIP44_V2_EXTENDED_PREFIX_THRESHOLD:
+        prefix = b"\x00\x00" + unpadded_len.to_bytes(4, "big")
+    else:
+        prefix = unpadded_len.to_bytes(2, "big")
+    suffix = bytes(_nip44_v2_calc_padded_len(unpadded_len) - unpadded_len)
+    return prefix + unpadded + suffix
+
+
+def _nip44_v2_unpad(padded: bytes) -> str:
+    first_two = int.from_bytes(padded[:2], "big")
+    if first_two == 0:
+        unpadded_len = int.from_bytes(padded[2:6], "big")
+        if unpadded_len < NIP44_V2_EXTENDED_PREFIX_THRESHOLD:
+            raise ValueError("invalid padding")
+        prefix_len = 6
+    else:
+        unpadded_len = first_two
+        prefix_len = 2
+
+    unpadded = padded[prefix_len : prefix_len + unpadded_len]
+    if (
+        unpadded_len == 0
+        or len(unpadded) != unpadded_len
+        or len(padded) != prefix_len + _nip44_v2_calc_padded_len(unpadded_len)
+    ):
+        raise ValueError("invalid padding")
+    return unpadded.decode()
+
+
+def _nip44_v2_message_keys(
+    conversation_key: bytes, nonce: bytes
+) -> tuple[bytes, bytes, bytes]:
+    if len(conversation_key) != 32:
+        raise ValueError("invalid conversation_key length")
+    if len(nonce) != 32:
+        raise ValueError("invalid nonce length")
+    keys = HKDFExpand(algorithm=hashes.SHA256(), length=76, info=nonce).derive(
+        conversation_key
+    )
+    return keys[:32], keys[32:44], keys[44:76]
+
+
+def _nip44_v2_chacha20(key: bytes, nonce: bytes, data: bytes) -> bytes:
+    if len(nonce) != 12:
+        raise ValueError("invalid chacha nonce length")
+    cipher = Cipher(algorithms.ChaCha20(key, b"\x00\x00\x00\x00" + nonce), None)
+    return cipher.encryptor().update(data)
+
+
+def _nip44_v2_hmac_aad(key: bytes, message: bytes, aad: bytes) -> bytes:
+    if len(aad) != 32:
+        raise ValueError("AAD associated data must be 32 bytes")
+    return hmac.new(key, aad + message, hashlib.sha256).digest()
 
 
 class RateLimit:
@@ -219,6 +307,72 @@ class NWCServiceProvider:
         """
         return self.shutdown or not settings.lnbits_running
 
+    def _get_conversation_key(self, public_key_hex: str) -> bytes:
+        shared_x = self.private_key.compute_shared_secret(public_key_hex)
+        return _nip44_v2_hkdf_extract(shared_x)
+
+    def _encrypt_nip44_v2_message(
+        self, message: str, public_key_hex: str, nonce: bytes | None = None
+    ) -> str:
+        nonce = nonce or secrets.token_bytes(32)
+        conversation_key = self._get_conversation_key(public_key_hex)
+        chacha_key, chacha_nonce, hmac_key = _nip44_v2_message_keys(
+            conversation_key, nonce
+        )
+        ciphertext = _nip44_v2_chacha20(
+            chacha_key, chacha_nonce, _nip44_v2_pad(message)
+        )
+        mac = _nip44_v2_hmac_aad(hmac_key, ciphertext, nonce)
+        return base64.b64encode(b"\x02" + nonce + ciphertext + mac).decode()
+
+    def _decrypt_nip44_v2_message(self, payload: str, public_key_hex: str) -> str:
+        if len(payload) == 0 or payload[0] == "#":
+            raise ValueError("unknown encryption version")
+        if len(payload) < NIP44_V2_MIN_PAYLOAD_SIZE:
+            raise ValueError("invalid payload size")
+        data = base64.b64decode(payload)
+        if len(data) < NIP44_V2_MIN_DECODED_SIZE:
+            raise ValueError("invalid data size")
+        version = data[0]
+        if version != 2:
+            raise ValueError("unknown encryption version " + str(version))
+        nonce = data[1:33]
+        ciphertext = data[33:-32]
+        mac = data[-32:]
+        conversation_key = self._get_conversation_key(public_key_hex)
+        chacha_key, chacha_nonce, hmac_key = _nip44_v2_message_keys(
+            conversation_key, nonce
+        )
+        calculated_mac = _nip44_v2_hmac_aad(hmac_key, ciphertext, nonce)
+        if not hmac.compare_digest(calculated_mac, mac):
+            raise ValueError("invalid MAC")
+        padded_plaintext = _nip44_v2_chacha20(chacha_key, chacha_nonce, ciphertext)
+        return _nip44_v2_unpad(padded_plaintext)
+
+    def _get_event_encryption(self, event: dict) -> str:
+        tags = event.get("tags", [])
+        encryption = next(
+            (tag[1] for tag in tags if len(tag) > 1 and tag[0] == "encryption"),
+            NIP04,
+        )
+        if encryption not in SUPPORTED_ENCRYPTIONS:
+            raise ValueError("unsupported encryption " + str(encryption))
+        return encryption
+
+    def _decrypt_message(
+        self, encrypted_message: str, public_key_hex: str, encryption: str
+    ) -> str:
+        if encryption == NIP44_V2:
+            return self._decrypt_nip44_v2_message(encrypted_message, public_key_hex)
+        return self.private_key.decrypt_message(encrypted_message, public_key_hex)
+
+    def _encrypt_message(
+        self, message: str, public_key_hex: str, encryption: str
+    ) -> str:
+        if encryption == NIP44_V2:
+            return self._encrypt_nip44_v2_message(message, public_key_hex)
+        return self.private_key.encrypt_message(message, public_key_hex)
+
     async def _send(self, data: list[Any]):
         """
         Sends data to the relay.
@@ -326,7 +480,10 @@ class NWCServiceProvider:
             "kind": 13194,
             "content": " ".join(self.supported_methods),
             "created_at": int(time.time()),
-            "tags": [["p", self.public_key_hex]],
+            "tags": [
+                ["encryption", " ".join(SUPPORTED_ENCRYPTIONS)],
+                ["p", self.public_key_hex],
+            ],
         }
         self._sign_event(event)
         await self._send(["EVENT", event])
@@ -364,8 +521,9 @@ class NWCServiceProvider:
 
         nwc_pubkey = event["pubkey"]
         content = event["content"]
+        encryption = self._get_event_encryption(event)
         # Decrypt the content
-        content = self.private_key.decrypt_message(content, nwc_pubkey)
+        content = self._decrypt_message(content, nwc_pubkey, encryption)
         # Deserialize content
         content = json.loads(content)
         # Handle request
@@ -412,13 +570,14 @@ class NWCServiceProvider:
                 "tags": tags,
                 "content": self._json_dumps(content),
             }
+            res["tags"].append(["encryption", encryption])
             # Reference request
             res["tags"].append(["e", event["id"]])
             # Reference user
             res["tags"].append(["p", nwc_pubkey])
             # Finalize response event
-            res["content"] = self.private_key.encrypt_message(
-                res["content"], nwc_pubkey
+            res["content"] = self._encrypt_message(
+                res["content"], nwc_pubkey, encryption
             )
             self._sign_event(res)
 
