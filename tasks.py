@@ -110,6 +110,10 @@ async def _process_invoice(
         True  # currently required by nip 47 specs, might change in future
     )
     payment_status: PaymentStatus | None = None
+    poll_interval = 0.5
+    max_poll_interval = 5.0
+    poll_attempts = 0
+    max_poll_attempts = 120  # ~2 minutes total with backoff
     while wait_for_preimage:
         payment_status = await check_transaction_status(wallet_id, payment_hash)
         if payment_status.success:
@@ -122,7 +126,14 @@ async def _process_invoice(
                 },
                 "in_budget": in_budget,
             }
-        await asyncio.sleep(0.05)
+        poll_attempts += 1
+        if poll_attempts >= max_poll_attempts:
+            logger.warning(
+                f"Gave up waiting for preimage after {poll_attempts} attempts"
+            )
+            break
+        await asyncio.sleep(poll_interval)
+        poll_interval = min(poll_interval * 1.5, max_poll_interval)
     if not payment_status:
         raise Exception("Payment status not found")
     return {
