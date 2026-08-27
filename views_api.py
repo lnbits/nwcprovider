@@ -1,7 +1,9 @@
 from http import HTTPStatus
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
+from lnbits.core.crud import get_wallets
 from lnbits.core.models import WalletTypeInfo
 from lnbits.decorators import check_admin, require_admin_key
 from pynostr.key import PrivateKey
@@ -22,12 +24,14 @@ from .models import (
     GetBudgetsNWC,
     GetNWC,
     GetWalletNWC,
+    NWCGetAllResponse,
     NWCGetResponse,
     NWCRegistrationRequest,
 )
 from .paranoia import (
     assert_boolean,
     assert_sane_string,
+    assert_valid_lud16,
     assert_valid_pubkey,
     assert_valid_wallet_id,
 )
@@ -70,6 +74,43 @@ async def api_get_nwcs(
     return out
 
 
+## Get nwc keys for all wallets belonging to the user
+@nwcprovider_api_router.get("/api/v1/nwc/all")
+async def api_get_all_nwcs(
+    include_expired: bool = False,
+    calculate_spent_budget: bool = False,
+    wallet: WalletTypeInfo = Depends(require_admin_key),
+) -> list[NWCGetAllResponse]:
+    """Get all NWC connections across all wallets for the current user."""
+    user_id = wallet.wallet.user
+
+    # Get all wallets for this user
+    user_wallets = await get_wallets(user_id)
+
+    out = []
+    for user_wallet in user_wallets:
+        wallet_id = user_wallet.id
+        wallet_name = user_wallet.name
+
+        wallet_nwcs = GetWalletNWC(wallet=wallet_id, include_expired=include_expired)
+        nwcs = await get_wallet_nwcs(wallet_nwcs)
+
+        for nwc in nwcs:
+            budgets_nwc = GetBudgetsNWC(
+                pubkey=nwc.pubkey, calculate_spent=calculate_spent_budget
+            )
+            budgets = await get_budgets_nwc(budgets_nwc)
+            res = NWCGetAllResponse(
+                data=nwc,
+                budgets=budgets,
+                wallet_id=wallet_id,
+                wallet_name=wallet_name,
+            )
+            out.append(res)
+
+    return out
+
+
 # Get a nwc key
 @nwcprovider_api_router.get("/api/v1/nwc/{pubkey}")
 async def api_get_nwc(
@@ -100,10 +141,14 @@ async def api_get_nwc(
 
 # Get pairing url for given secret
 @nwcprovider_api_router.get("/api/v1/pairing/{secret}")
-async def api_get_pairing_url(req: Request, secret: str) -> str:
+async def api_get_pairing_url(
+    req: Request, secret: str, lud16: str | None = None
+) -> str:
 
     # hardening #
     assert_sane_string(secret)
+    if lud16:
+        assert_valid_lud16(lud16)
     # ## #
 
     pprivkey: str | None = await get_config_nwc("provider_key")
@@ -132,9 +177,10 @@ async def api_get_pairing_url(req: Request, secret: str) -> str:
     ppubkey = ppk.hex()
     url = "nostr+walletconnect://"
     url += ppubkey
-    url += "?relay=" + relay
+    url += "?relay=" + quote(relay, safe="")
     url += "&secret=" + secret
-    # lud16=?
+    if lud16:
+        url += "&lud16=" + quote(lud16, safe="")
     return url
 
 
@@ -163,6 +209,7 @@ async def api_register_nwc(
             expires_at=data.expires_at,
             permissions=data.permissions,
             budgets=data.budgets,
+            lud16=data.lud16,
         )
     )
     budgets = await get_budgets_nwc(GetBudgetsNWC(pubkey=pubkey))

@@ -157,6 +157,26 @@ def assert_non_empty_string(v: str):
         panic("string is empty")
 
 
+# Check if string is a valid lud16 lightning address (eg. name@domain)
+def assert_valid_lud16(v: str):
+    if not ENABLE_HARDENING:
+        return
+    assert_non_empty_string(v)
+    if len(v) > 255:
+        panic("lud16 is too long")
+    name, sep, domain = v.partition("@")
+    if not (sep and name and domain):
+        panic("lud16 must be in the form name@domain")
+    # LUD-16 restricts the name to a-z0-9-_.
+    if not all(c.isascii() and (c.isalnum() or c in "-_.") for c in name):
+        panic("lud16 name contains invalid characters")
+    # domain must look like a clearnet host (eg. example.com)
+    if "." not in domain or not all(
+        c.isascii() and (c.isalnum() or c in "-.") for c in domain
+    ):
+        panic("lud16 domain is invalid")
+
+
 # Assert valid json
 def assert_valid_json(v: str):
     if not ENABLE_HARDENING:
