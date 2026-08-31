@@ -7,7 +7,7 @@ import time
 import pytest
 from loguru import logger
 
-from ...nwcp import NWCServiceProvider
+from ...nwcp import NIP04, NIP44_V2, NWCServiceProvider
 
 
 @pytest.fixture
@@ -51,6 +51,28 @@ def test_encrytdecrypt(nwc_service_provider, nwc_service_provider2):
 
     assert dec_a == content
     assert dec_b == content
+
+
+def test_nip44_v2_encryptdecrypt_vector():
+    provider1 = NWCServiceProvider(
+        "0000000000000000000000000000000000000000000000000000000000000001", ""
+    )
+    provider2 = NWCServiceProvider(
+        "0000000000000000000000000000000000000000000000000000000000000002", ""
+    )
+    nonce = bytes.fromhex(
+        "0000000000000000000000000000000000000000000000000000000000000001"
+    )
+
+    payload = provider1._encrypt_nip44_v2_message(
+        "a", provider2.public_key_hex, nonce=nonce
+    )
+
+    assert payload == (
+        "AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABee0G5VSK0/9YypIObAtDKfYEAjD"
+        "35uVkHyB0F4DwrcNaCXlCWZKaArsGrY6M9wnuTMxWfp1RTN9Xga8no+kF5Vsb"
+    )
+    assert provider2._decrypt_nip44_v2_message(payload, provider1.public_key_hex) == "a"
 
 
 def test_signverify(nwc_service_provider, nwc_service_provider2):
@@ -270,7 +292,52 @@ async def test_send_info_event(nwc_service_provider):
     event = msg[1]
     assert event["kind"] == 13194
     assert "pay_invoice" in event["content"]
+    assert ["encryption", f"{NIP44_V2} {NIP04}"] in event["tags"]
     assert nwc_service_provider._verify_event(event)
+
+
+@pytest.mark.asyncio
+async def test_handle_nip44_v2(nwc_service_provider, nwc_service_provider2):
+    content = nwc_service_provider._json_dumps(
+        {"method": "pay_invoice", "params": {"invoice": "abc"}}
+    )
+    content = nwc_service_provider._encrypt_nip44_v2_message(
+        content, nwc_service_provider2.public_key_hex
+    )
+    event = {
+        "kind": 23194,
+        "content": content,
+        "tags": [
+            ["encryption", NIP44_V2],
+            ["p", nwc_service_provider2.public_key_hex],
+        ],
+        "created_at": int(time.time()),
+    }
+    signed = nwc_service_provider._sign_event(event)
+
+    async def _handle_pay_invoice(provider, pubkey, content):
+        assert pubkey == nwc_service_provider.public_key_hex
+        assert content["method"] == "pay_invoice"
+        assert content["params"]["invoice"] == "abc"
+        return [({"preimage": "00000"}, None, [])]
+
+    async def _send_pass(obj):
+        pass
+
+    nwc_service_provider2._send = _send_pass
+    nwc_service_provider2._create_subscription()
+    nwc_service_provider2.add_request_listener("pay_invoice", _handle_pay_invoice)
+    sent_events = await nwc_service_provider2._handle_request(signed)
+
+    assert len(sent_events) == 1
+    response = sent_events[0]
+    assert ["encryption", NIP44_V2] in response["tags"]
+    content = nwc_service_provider._decrypt_nip44_v2_message(
+        response["content"], nwc_service_provider2.public_key_hex
+    )
+    content = json.loads(content)
+    assert content["result_type"] == "pay_invoice"
+    assert content["result"]["preimage"] == "00000"
 
 
 @pytest.mark.asyncio
