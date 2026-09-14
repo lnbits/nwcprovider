@@ -78,3 +78,77 @@ async def test_process_invoice_backs_off_pending_payment_polling_to_configured_m
     assert result["preimage"] == "b" * 64
     assert result["fee_msats"] == 10
     assert result["paid"] is True
+
+
+def _stub_make_invoice(monkeypatch, captured: dict):
+    async def fake_get_nwc(*args, **kwargs):
+        return SimpleNamespace(wallet="wallet123")
+
+    async def fake_check(nwc, method):
+        return None
+
+    async def fake_create_invoice(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(payment_hash="b" * 64, bolt11="lnbc1example")
+
+    async def fake_check_transaction_status(wallet_id: str, payment_hash: str):
+        return SimpleNamespace(preimage=None)
+
+    monkeypatch.setattr(tasks, "get_nwc", fake_get_nwc)
+    monkeypatch.setattr(tasks, "_check", fake_check)
+    monkeypatch.setattr(tasks, "create_invoice", fake_create_invoice)
+    monkeypatch.setattr(
+        tasks, "check_transaction_status", fake_check_transaction_status
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "params",
+    [
+        # rust-nostr, Alby JS SDK: unused optional fields are omitted
+        {"amount": 21000},
+        # Amethyst: unused optional fields are sent as explicit null
+        {
+            "amount": 21000,
+            "description": None,
+            "description_hash": None,
+            "expiry": None,
+        },
+    ],
+)
+async def test_make_invoice_accepts_absent_or_null_optional_params(monkeypatch, params):
+    captured: dict = {}
+    _stub_make_invoice(monkeypatch, captured)
+
+    [(result, error, _)] = await tasks._on_make_invoice(
+        SimpleNamespace(), "a" * 64, {"params": params}
+    )
+
+    assert error is None
+    assert result["invoice"] == "lnbc1example"
+    assert result["description"] == ""
+    assert "expires_at" not in result
+    assert captured["memo"] == ""
+    assert captured["description_hash"] is None
+    assert captured["unhashed_description"] is None
+    assert captured["expiry"] is None
+
+
+@pytest.mark.asyncio
+async def test_make_invoice_passes_description_and_expiry_through(monkeypatch):
+    captured: dict = {}
+    _stub_make_invoice(monkeypatch, captured)
+
+    [(result, error, _)] = await tasks._on_make_invoice(
+        SimpleNamespace(),
+        "a" * 64,
+        {"params": {"amount": 21000, "description": "coffee", "expiry": 600}},
+    )
+
+    assert error is None
+    assert captured["memo"] == "coffee"
+    assert captured["unhashed_description"] == b"coffee"
+    assert captured["expiry"] == 600
+    assert result["description"] == "coffee"
+    assert "expires_at" in result
