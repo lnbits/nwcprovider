@@ -264,9 +264,11 @@ async def _on_make_invoice(
     # Ensures amount is provided
     if not amount_msats:
         raise Exception("Missing amount")
-    description = params.get("description", "")
-    description_hash = params.get("description_hash", None)
-    expiry = params.get("expiry", None)
+    # Optional params may arrive as explicit JSON null, which dict.get does
+    # not default, so coerce here rather than trusting the fallback.
+    description = params.get("description") or ""
+    description_hash = params.get("description_hash") or None
+    expiry = params.get("expiry") or None
 
     # hardening #
     assert_valid_msats(amount_msats)
@@ -284,7 +286,7 @@ async def _on_make_invoice(
         currency="sat",
         memo=description,
         description_hash=bytes.fromhex(description_hash) if description_hash else None,
-        unhashed_description=description.encode("utf-8"),
+        unhashed_description=description.encode("utf-8") if description else None,
         expiry=expiry,
     )
     payment_hash = payment.payment_hash
@@ -394,12 +396,12 @@ async def _on_list_transactions(
     if not nwc:
         raise Exception("Pubkey has no associated wallet")
     params = payload.get("params", 0)
-    tfrom = params.get("from", 0)
-    tuntil = params.get("until", int(time.time()))
-    limit = params.get("limit", 10)
-    offset = params.get("offset", 0)
-    unpaid = params.get("unpaid", False)
-    tx_type = params.get("type", "")
+    tfrom = params.get("from") or 0
+    tuntil = params.get("until") or int(time.time())
+    limit = params.get("limit") or 10
+    offset = params.get("offset") or 0
+    unpaid = params.get("unpaid") or False
+    tx_type = params.get("type") or ""
 
     # hardening #
     assert_valid_positive_int(tfrom)
