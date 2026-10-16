@@ -1,6 +1,9 @@
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
+from lnbits.core.models import Payment
 
 from ... import tasks
 
@@ -78,3 +81,78 @@ async def test_process_invoice_backs_off_pending_payment_polling_to_configured_m
     assert result["preimage"] == "b" * 64
     assert result["fee_msats"] == 10
     assert result["paid"] is True
+
+
+def _settlement_payment(*, created: datetime, updated: datetime) -> Payment:
+    return Payment(
+        checking_id="c" * 64,
+        payment_hash="b" * 64,
+        wallet_id="wallet123",
+        amount=123000,
+        fee=0,
+        bolt11="lnbc1example",
+        status="success",
+        time=created,
+        updated_at=updated,
+    )
+
+
+def _patch_payment_reads(monkeypatch, payments: list[Payment], permission: str) -> None:
+    async def fake_get_nwc(*args, **kwargs):
+        return SimpleNamespace(wallet="wallet123", get_permissions=lambda: [permission])
+
+    async def fake_get_wallet_payment(*args, **kwargs):
+        return payments[0]
+
+    async def fake_get_payments(*args, **kwargs):
+        return payments
+
+    monkeypatch.setattr(tasks, "get_nwc", fake_get_nwc)
+    monkeypatch.setattr(tasks, "get_wallet_payment", fake_get_wallet_payment)
+    monkeypatch.setattr(tasks, "get_payments", fake_get_payments)
+    monkeypatch.setattr(
+        tasks,
+        "bolt11_decode",
+        lambda *args, **kwargs: SimpleNamespace(
+            description="test 123", description_hash=None, date=0
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_lookup_invoice_settled_at_is_the_state_change_not_creation(monkeypatch):
+    created = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
+    settled = created + timedelta(days=3)
+    _patch_payment_reads(
+        monkeypatch, [_settlement_payment(created=created, updated=settled)], "lookup"
+    )
+
+    [(res, error, _)] = await tasks._on_lookup_invoice(
+        cast(Any, None), "a" * 64, {"params": {"payment_hash": "b" * 64}}
+    )
+
+    assert error is None
+    assert isinstance(res, dict)
+    assert res["created_at"] == int(created.timestamp())
+    assert res["settled_at"] == int(settled.timestamp())
+
+
+@pytest.mark.asyncio
+async def test_list_transactions_settled_at_is_the_state_change_not_creation(
+    monkeypatch,
+):
+    created = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
+    settled = created + timedelta(days=3)
+    _patch_payment_reads(
+        monkeypatch, [_settlement_payment(created=created, updated=settled)], "history"
+    )
+
+    [(res, error, _)] = await tasks._on_list_transactions(
+        cast(Any, None), "a" * 64, {"params": {"limit": 10}}
+    )
+
+    assert error is None
+    assert isinstance(res, dict)
+    transaction = res["transactions"][0]
+    assert transaction["created_at"] == int(created.timestamp())
+    assert transaction["settled_at"] == int(settled.timestamp())

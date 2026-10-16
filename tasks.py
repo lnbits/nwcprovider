@@ -354,6 +354,10 @@ async def _on_lookup_invoice(
     invoice_data = bolt11_decode(payment.bolt11)
     is_settled = not payment.pending
     timestamp = int(payment.time.timestamp()) or int(invoice_data.date)
+    # LNbits stores no settlement timestamp: `updated_at` is written when the
+    # record changes state (the write that settles it), while `time` is the
+    # record's creation - the invoice's creation, for an incoming payment.
+    settled_at = int(payment.updated_at.timestamp())
     expiry = int(payment.expiry.timestamp()) if payment.expiry else timestamp + 3600
     preimage = (
         payment.preimage
@@ -371,7 +375,7 @@ async def _on_lookup_invoice(
         "fees_paid": abs(payment.fee),
         "created_at": timestamp,
         "expires_at": expiry,
-        "settled_at": timestamp if is_settled else None,
+        "settled_at": settled_at if is_settled else None,
         "metadata": {},
     }
     if invoice_data.description_hash:
@@ -431,6 +435,7 @@ async def _on_list_transactions(
         invoice_data = bolt11_decode(p.bolt11)
         is_settled = not p.pending
         timestamp = int(p.time.timestamp()) or invoice_data.date
+        settled_at = int(p.updated_at.timestamp())
         transactions.append(
             {
                 "type": "outgoing" if p.is_out else "incoming",
@@ -446,7 +451,7 @@ async def _on_list_transactions(
                 "amount": abs(p.msat),
                 "fees_paid": p.fee,
                 "created_at": timestamp,
-                "settled_at": timestamp if is_settled else None,
+                "settled_at": settled_at if is_settled else None,
                 "metadata": {},
             }
         )
