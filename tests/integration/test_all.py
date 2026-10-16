@@ -371,7 +371,7 @@ async def test_make_invoice():
     assert result["type"] == "incoming"
     assert result["description"] == "test 123"
     assert result["amount"] == 123000
-    assert result["preimage"]
+    assert "preimage" not in result  # unpaid invoice: no verifiable preimage yet
     assert result["created_at"] < time.time() + 10
     assert result["created_at"] > time.time() - 10
     assert result["expires_at"] < time.time() + 1000 + 10
@@ -402,7 +402,7 @@ async def test_lookup_invoice():
     assert result["type"] == "incoming"
     assert result["description"] == "test 123"
     assert result["amount"] == 123000
-    assert result["preimage"]
+    assert "preimage" not in result  # unpaid invoice: no verifiable preimage yet
     assert result["created_at"] < time.time() + 10
     assert result["created_at"] > time.time() - 10
     assert result["expires_at"] < time.time() + 1000 + 10
