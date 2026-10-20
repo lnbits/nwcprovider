@@ -1,10 +1,11 @@
 # Data models for your extension
 
+import math
 import time
 from sqlite3 import Row
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class NWCKey(BaseModel):
@@ -53,7 +54,7 @@ class NWCBudget(BaseModel):
 
 
 class NWCNewBudget(BaseModel):
-    pubkey: str | None
+    pubkey: str | None = None
     budget_msats: int
     refresh_window: int
     created_at: int
@@ -102,6 +103,14 @@ class NWCRegistrationRequest(BaseModel):
     description: str
     expires_at: int
     budgets: list[NWCNewBudget]
+
+    @field_validator("expires_at", mode="before")
+    @classmethod
+    def _normalize_expiry(cls, value: object) -> object:
+        # Preserve the previous API's conversion of fractional Unix timestamps.
+        if isinstance(value, float) and math.isfinite(value):
+            return int(value)
+        return value
 
 
 class NWCGetResponse(BaseModel):
