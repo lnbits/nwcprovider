@@ -314,7 +314,7 @@ class NWCServiceProvider:
     def _encrypt_nip44_v2_message(
         self, message: str, public_key_hex: str, nonce: bytes | None = None
     ) -> str:
-        nonce = nonce or secrets.token_bytes(32)
+        nonce = secrets.token_bytes(32) if nonce is None else nonce
         conversation_key = self._get_conversation_key(public_key_hex)
         chacha_key, chacha_nonce, hmac_key = _nip44_v2_message_keys(
             conversation_key, nonce
