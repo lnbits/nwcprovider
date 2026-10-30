@@ -64,7 +64,7 @@ async def create_nwc(data: CreateNWCKey) -> NWCKey:
                 created_at=budget.created_at,
             )
             await db.insert("nwcprovider.budgets", budget_entry)
-    return NWCKey(**nwckey_entry.dict())
+    return NWCKey(**nwckey_entry.model_dump())
 
 
 async def delete_nwc(data: DeleteNWC) -> None:

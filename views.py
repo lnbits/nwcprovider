@@ -14,12 +14,12 @@ def nwcprovider_renderer():
 @nwcprovider_router.get("/", response_class=HTMLResponse)
 async def index(request: Request, user: User = Depends(check_user_exists)):
     return nwcprovider_renderer().TemplateResponse(
-        "nwcprovider/index.html", {"request": request, "user": user.json()}
+        "nwcprovider/index.html", {"request": request, "user": user.model_dump_json()}
     )
 
 
 @nwcprovider_router.get("/admin", response_class=HTMLResponse)
 async def admin(request: Request, user: User = Depends(check_admin)):
     return nwcprovider_renderer().TemplateResponse(
-        "nwcprovider/admin.html", {"request": request, "user": user.json()}
+        "nwcprovider/admin.html", {"request": request, "user": user.model_dump_json()}
     )
