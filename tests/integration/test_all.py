@@ -1111,6 +1111,14 @@ async def test_list_transactions():
         limited_txs = result["transactions"]
         assert len(limited_txs) == 1
 
+        # Test until: the payments above exist, but the window ends before them
+        await wallet1.send_event(
+            "list_transactions", {"until": int(time.time()) - 3600}
+        )
+        result, _, error = await wallet1.wait_for("list_transactions")
+        assert not error
+        assert result["transactions"] == []
+
     finally:
         await wallet1.close()
         await wallet2.close()

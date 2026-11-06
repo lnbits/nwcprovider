@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 
@@ -78,3 +79,42 @@ async def test_process_invoice_backs_off_pending_payment_polling_to_configured_m
     assert result["preimage"] == "b" * 64
     assert result["fee_msats"] == 10
     assert result["paid"] is True
+
+
+async def _list_transactions_query(monkeypatch, params: dict) -> dict:
+    """Run `list_transactions` and return the kwargs handed to `get_payments`."""
+    captured: dict = {}
+
+    async def fake_get_nwc(*args, **kwargs):
+        return SimpleNamespace(wallet="wallet123", get_permissions=lambda: ["history"])
+
+    async def fake_get_payments(*args, **kwargs):
+        captured.update(kwargs)
+        return []
+
+    async def fake_get_wallet_payment(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(tasks, "get_nwc", fake_get_nwc)
+    monkeypatch.setattr(tasks, "get_payments", fake_get_payments)
+    monkeypatch.setattr(tasks, "get_wallet_payment", fake_get_wallet_payment)
+
+    [(res, error, _)] = await tasks._on_list_transactions(
+        cast(Any, None), "a" * 64, {"params": params}
+    )
+
+    assert error is None
+    assert res == {"transactions": []}
+    return captured
+
+
+@pytest.mark.asyncio
+async def test_list_transactions_applies_the_until_bound(monkeypatch):
+    """`until` has to reach the query: it was built and then discarded."""
+    captured = await _list_transactions_query(monkeypatch, {"until": 1791115200})
+
+    filters = captured["filters"]
+    assert filters.where([]) == "WHERE (time <= :tuntil)"
+    # the raw unix timestamp, as `get_payments_paginated` passes `since`: the
+    # placeholder wraps it per database, a coerced datetime would not bind
+    assert filters.values({}) == {"tuntil": 1791115200}

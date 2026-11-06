@@ -5,13 +5,13 @@ from typing import Any
 
 from bolt11 import decode as bolt11_decode
 from lnbits.core.crud import get_payments, get_wallet, get_wallet_payment
-from lnbits.core.models import Payment
+from lnbits.core.models import Payment, PaymentFilters
 from lnbits.core.services import (
     check_transaction_status,
     create_invoice,
     pay_invoice,
 )
-from lnbits.db import Filters
+from lnbits.db import Filter, Filters, Operator
 from lnbits.exceptions import PaymentError
 from lnbits.settings import settings
 from lnbits.wallets.base import PaymentStatus
@@ -410,9 +410,22 @@ async def _on_list_transactions(
     assert_sane_string(tx_type)
     # ## #
 
+    # `Filters.where()` and `Filters.values()` *return* the clause and the value
+    # mapping for the query builder - they store nothing - so the upper bound
+    # this used to build was discarded and `until` was silently ignored: a
+    # client asking for a date range got rows past it. Pass it as a filter
+    # instead. The value stays the unix timestamp the request carries:
+    # `Filter.statement` renders it through `db.timestamp_placeholder()`, which
+    # is how `get_payments_paginated` passes `since`.
     filters: Filters = Filters()
-    filters.where(["time <= :tuntil"])
-    filters.values({"tuntil": tuntil})
+    filters.filters.append(
+        Filter(
+            field="time",
+            op=Operator.LE,
+            model=PaymentFilters,
+            values={"tuntil": tuntil},
+        )
+    )
     history = await get_payments(
         wallet_id=nwc.wallet,
         complete=True,
