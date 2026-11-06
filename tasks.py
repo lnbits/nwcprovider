@@ -37,6 +37,7 @@ from .permission import nwc_permissions
 PAYMENT_STATUS_POLL_INITIAL_INTERVAL_SECONDS = 1.0
 PAYMENT_STATUS_POLL_MAX_INTERVAL_SECONDS = 60.0
 PAYMENT_STATUS_POLL_BACKOFF_MULTIPLIER = 2.0
+PAYMENT_STATUS_POLL_TIMEOUT_SECONDS = 90.0
 
 
 async def _check(nwc: NWCKey | None, method: str) -> dict | None:
@@ -115,6 +116,7 @@ async def _process_invoice(
     )
     payment_status: PaymentStatus | None = None
     poll_interval = PAYMENT_STATUS_POLL_INITIAL_INTERVAL_SECONDS
+    deadline = asyncio.get_event_loop().time() + PAYMENT_STATUS_POLL_TIMEOUT_SECONDS
     while wait_for_preimage:
         payment_status = await check_transaction_status(wallet_id, payment_hash)
         if payment_status.success:
@@ -124,6 +126,14 @@ async def _process_invoice(
                 "error": {
                     "code": "PAYMENT_FAILED",
                     "message": "Payment failed.",
+                },
+                "in_budget": in_budget,
+            }
+        if asyncio.get_event_loop().time() >= deadline:
+            return {
+                "error": {
+                    "code": "INTERNAL",
+                    "message": "Payment timed out waiting for confirmation.",
                 },
                 "in_budget": in_budget,
             }
