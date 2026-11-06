@@ -292,23 +292,24 @@ async def _on_make_invoice(
     payment_status = await check_transaction_status(
         wallet_id=nwc.wallet, payment_hash=payment_hash
     )
-    preimage = payment_status.preimage
-    if (
-        not preimage
-    ):  # Some backend do not return a preimage (eg. FakeWallet), so we fake it
-        preimage = "0000000000000000000000000000000000000000000000000000000000000000"
-    res = {
+    res: dict = {
         "type": "incoming",
         "invoice": payment_request,
         "description": description,
         "description_hash": description_hash,
-        "preimage": preimage,
         "payment_hash": payment_hash,
         "amount": amount_msats,
         # "fees_paid":None,
         "created_at": int(time.time()),
         "metadata": {},
     }
+    # A newly created invoice is unpaid, so a preimage usually does not exist
+    # yet: NWC only allows returning one that hashes to `payment_hash`
+    # (NWC-09, BOLT11 details) and marks it optional while unpaid, so the old
+    # zero-filled placeholder was a receipt a client could not verify.
+    # Internal wallets do know the preimage at creation: keep it when present.
+    if payment_status.preimage:
+        res["preimage"] = payment_status.preimage
     if expiry:
         res["expires_at"] = int(time.time()) + int(expiry)
     # await log_nwc(pubkey, payload)

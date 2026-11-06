@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 
@@ -78,3 +79,44 @@ async def test_process_invoice_backs_off_pending_payment_polling_to_configured_m
     assert result["preimage"] == "b" * 64
     assert result["fee_msats"] == 10
     assert result["paid"] is True
+
+
+async def _make_invoice(monkeypatch, backend_preimage: str | None) -> dict:
+    async def fake_get_nwc(*args, **kwargs):
+        return SimpleNamespace(wallet="wallet123", get_permissions=lambda: ["invoice"])
+
+    async def fake_create_invoice(*args, **kwargs):
+        return SimpleNamespace(payment_hash="b" * 64, bolt11="lnbc1example")
+
+    async def fake_check_transaction_status(wallet_id, payment_hash):
+        return SimpleNamespace(preimage=backend_preimage)
+
+    monkeypatch.setattr(tasks, "get_nwc", fake_get_nwc)
+    monkeypatch.setattr(tasks, "create_invoice", fake_create_invoice)
+    monkeypatch.setattr(
+        tasks, "check_transaction_status", fake_check_transaction_status
+    )
+
+    [(res, error, _)] = await tasks._on_make_invoice(
+        cast(Any, None), "a" * 64, {"params": {"amount": 123000, "description": "test"}}
+    )
+    assert error is None
+    assert isinstance(res, dict)
+    return res
+
+
+@pytest.mark.asyncio
+async def test_make_invoice_omits_preimage_when_backend_has_none(monkeypatch):
+    """The invoice is unpaid: a zero-filled preimage is not a verifiable receipt."""
+    res = await _make_invoice(monkeypatch, backend_preimage=None)
+
+    assert "preimage" not in res
+    assert res["payment_hash"] == "b" * 64
+    assert res["amount"] == 123000
+
+
+@pytest.mark.asyncio
+async def test_make_invoice_keeps_preimage_the_backend_returns(monkeypatch):
+    res = await _make_invoice(monkeypatch, backend_preimage="d" * 64)
+
+    assert res["preimage"] == "d" * 64
