@@ -418,7 +418,11 @@ async def test_lookup_invoice():
     assert result["type"] == "incoming"
     assert result["description"] == "test 123"
     assert result["amount"] == 123000
-    assert result["preimage"]
+    # the invoice is unpaid: state must say so and no settlement field may be
+    # set (a zero-filled placeholder preimage is not a settlement proof)
+    assert result["state"] == "pending"
+    assert "settled_at" not in result
+    assert "preimage" not in result
     assert result["created_at"] < time.time() + 10
     assert result["created_at"] > time.time() - 10
     assert result["expires_at"] < time.time() + 1000 + 10
