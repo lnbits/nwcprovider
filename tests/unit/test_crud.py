@@ -5,7 +5,7 @@ import pytest
 import pytest_asyncio
 from lnbits.db import Database
 from lnbits.settings import settings
-from sqlalchemy import event
+from sqlalchemy import event  # type: ignore[import-untyped]
 
 from ... import crud, migrations, models
 
