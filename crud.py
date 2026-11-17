@@ -208,7 +208,7 @@ async def tracked_spend_nwc(data: TrackedSpendNWC, action):
         budgets = await get_budgets_nwc(GetBudgetsNWC(pubkey=data.pubkey))
         in_budget = True
         for budget in budgets:
-            last_cycle, next_cycle = budget.get_timestamp_range()
+            last_cycle, next_cycle = budget.get_timestamp_range(created_at)
 
             # hardening #
             assert_valid_timestamp_seconds(last_cycle)
@@ -245,7 +245,7 @@ async def tracked_spend_nwc(data: TrackedSpendNWC, action):
             if tot_spent_in_range_msats + data.amount_msats > budget.budget_msats:
                 in_budget = False
                 break
-        if not in_budget:
+        if not in_budget or not await get_nwc(GetNWC(pubkey=data.pubkey)):
             return False, None
         out = await action()
         await db.execute(

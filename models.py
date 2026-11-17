@@ -36,8 +36,8 @@ class NWCBudget(BaseModel):
     created_at: int
     used_budget_msats: int = 0
 
-    def get_timestamp_range(self) -> tuple[int, int]:
-        c = int(time.time())
+    def get_timestamp_range(self, now: int | None = None) -> tuple[int, int]:
+        c = int(time.time()) if now is None else now
         if self.refresh_window <= 0:  # never refresh
             # return a timestamp in the future
             return self.created_at, c + 21000000
