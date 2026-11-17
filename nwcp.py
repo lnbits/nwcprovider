@@ -86,11 +86,11 @@ class NWCServiceProvider:
         if not relay:  # Connect to nostrclient
             relay = "nostrclient"
         if relay == "nostrclient":
-            relay = f"ws://localhost:{settings.port}/nostrclient/api/v1/relay"
+            relay = f"ws://127.0.0.1:{settings.port}/nostrclient/api/v1/relay"
         elif relay == "nostrclient:private":
             relay_endpoint = encrypt_internal_message("relay")
             relay = (
-                f"ws://localhost:{settings.port}/nostrclient/api/v1/{relay_endpoint}"
+                f"ws://127.0.0.1:{settings.port}/nostrclient/api/v1/{relay_endpoint}"
             )
         self.relay = relay
 
