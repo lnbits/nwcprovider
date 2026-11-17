@@ -315,6 +315,25 @@ async def _on_make_invoice(
     return [(res, None, [])]
 
 
+def _nip47_state(payment: Payment) -> str:
+    """Map an LNbits payment to a NIP-47/NWC payment state.
+
+    LNbits only tracks pending/success/failed, while NWC separates an expired
+    incoming invoice from a failed outgoing payment. `not payment.pending` is
+    true for a failed payment too, so it cannot be used as "settled".
+    An incoming payment that failed without expiring (a canceled hold invoice,
+    for example) is reported as `failed`: NIP-47 defines no `canceled` state
+    for invoices.
+    """
+    if payment.success:
+        return "settled"
+    if payment.failed:
+        if not payment.is_in:
+            return "failed"
+        return "expired" if payment.is_expired else "failed"
+    return "pending"
+
+
 async def _on_lookup_invoice(
     sp: NWCServiceProvider, pubkey: str, payload: dict
 ) -> list[tuple[dict | None, dict | None, list]]:
@@ -352,28 +371,31 @@ async def _on_lookup_invoice(
     if not payment:
         raise Exception("Payment not found")
     invoice_data = bolt11_decode(payment.bolt11)
-    is_settled = not payment.pending
+    state = _nip47_state(payment)
     timestamp = int(payment.time.timestamp()) or int(invoice_data.date)
     expiry = int(payment.expiry.timestamp()) if payment.expiry else timestamp + 3600
-    preimage = (
-        payment.preimage
-        or "0000000000000000000000000000000000000000000000000000000000000000"
-    )
     res: dict = {
         "type": "outgoing" if payment.is_out else "incoming",
         "invoice": payment.bolt11,
         "description": (
             invoice_data.description if invoice_data.description else payment.memo
         ),
-        "preimage": preimage if is_settled or payment.is_in else None,
         "payment_hash": payment.payment_hash,
         "amount": abs(payment.msat),
         "fees_paid": abs(payment.fee),
         "created_at": timestamp,
         "expires_at": expiry,
-        "settled_at": timestamp if is_settled else None,
+        "state": state,
         "metadata": {},
     }
+    # A settlement time belongs only to a settled payment, and NWC does not
+    # allow returning a preimage that does not hash to `payment_hash` (the
+    # zero-filled placeholder used before did not).
+    if state == "settled":
+        res["settled_at"] = timestamp
+        if payment.preimage:
+            res["preimage"] = payment.preimage
+
     if invoice_data.description_hash:
         res["description_hash"] = invoice_data.description_hash
     # await log_nwc(pubkey, payload)
@@ -429,27 +451,29 @@ async def _on_list_transactions(
     p: Payment
     for p in history:
         invoice_data = bolt11_decode(p.bolt11)
-        is_settled = not p.pending
+        state = _nip47_state(p)
         timestamp = int(p.time.timestamp()) or invoice_data.date
-        transactions.append(
-            {
-                "type": "outgoing" if p.is_out else "incoming",
-                "invoice": p.bolt11,
-                # Fallback chain so a human-readable description reaches
-                # the NWC client. Mirror of `_on_lookup_invoice`
-                "description": (
-                    (p.extra or {}).get("comment") or invoice_data.description or p.memo
-                ),
-                "description_hash": invoice_data.description_hash,
-                "preimage": p.preimage if is_settled or p.is_in else None,
-                "payment_hash": p.payment_hash,
-                "amount": abs(p.msat),
-                "fees_paid": p.fee,
-                "created_at": timestamp,
-                "settled_at": timestamp if is_settled else None,
-                "metadata": {},
-            }
-        )
+        tx: dict = {
+            "type": "outgoing" if p.is_out else "incoming",
+            "invoice": p.bolt11,
+            # Fallback chain so a human-readable description reaches
+            # the NWC client. Mirror of `_on_lookup_invoice`
+            "description": (
+                (p.extra or {}).get("comment") or invoice_data.description or p.memo
+            ),
+            "description_hash": invoice_data.description_hash,
+            "payment_hash": p.payment_hash,
+            "amount": abs(p.msat),
+            "fees_paid": p.fee,
+            "created_at": timestamp,
+            "state": state,
+            "metadata": {},
+        }
+        if state == "settled":
+            tx["settled_at"] = timestamp
+            if p.preimage:
+                tx["preimage"] = p.preimage
+        transactions.append(tx)
         await asyncio.sleep(0)
     # await log_nwc(pubkey, payload)
     return [({"transactions": transactions}, None, [])]
