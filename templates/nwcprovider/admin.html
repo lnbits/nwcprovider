@@ -22,7 +22,7 @@
                   label="Nostr Relay URL"
                   filled
                   wrap
-                  :hint="'URL of the Nostr relay for dispatching and receiving NWC events. Use public relays or a custom one. Specify `nostrclient` to use the Nostr Client extension'"
+                  :hint="'URL of the Nostr relay for dispatching and receiving NWC events. Use public relays or a custom one. Enter nostrclient to use the Nostr Client extension'"
                 >
                 </q-input>
               </q-td>
@@ -41,7 +41,7 @@
               <q-td>
                 <q-input
                   filled
-                  label="NWC Provider Secret Key "
+                  label="NWC Provider Secret Key"
                   v-model="config.provider_key"
                   :hint="'The secret key for the NWC Service Provider. You don\'t need to change this unless your key has been compromised.'"
                 />
@@ -51,7 +51,7 @@
               <q-td>
                 <q-input
                   filled
-                  label="Time Period To Handle Missed Events"
+                  label="Missed Events Lookback Period"
                   v-model="config.handle_missed_events"
                   type="number"
                   :hint="'Number of seconds to look back for processing events missed while offline. Setting it to 0 disables this functionality.'"

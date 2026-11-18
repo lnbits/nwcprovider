@@ -16,6 +16,7 @@ class NWCKey(BaseModel):
     permissions: str
     created_at: int
     last_used: int
+    lud16: str | None = None
 
     def get_permissions(self) -> list[str]:
         try:
@@ -68,6 +69,7 @@ class CreateNWCKey(BaseModel):
     expires_at: int
     permissions: list[str]
     budgets: list[NWCNewBudget] | None = None
+    lud16: str | None = None
 
 
 class DeleteNWC(BaseModel):
@@ -103,6 +105,7 @@ class NWCRegistrationRequest(BaseModel):
     description: str
     expires_at: int
     budgets: list[NWCNewBudget]
+    lud16: str | None = None
 
     @field_validator("expires_at", mode="before")
     @classmethod
@@ -116,6 +119,13 @@ class NWCRegistrationRequest(BaseModel):
 class NWCGetResponse(BaseModel):
     data: NWCKey
     budgets: list[NWCBudget]
+
+
+class NWCGetAllResponse(BaseModel):
+    data: NWCKey
+    budgets: list[NWCBudget]
+    wallet_id: str
+    wallet_name: str
 
 
 class NWCConfig(BaseModel):
